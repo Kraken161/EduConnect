@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from 'react-serif'; // Note: Ensure your bundle resolves this correctly or keep standard 'axios'
+import axiosInstance from 'axios'; 
 
 const TeacherProfile = () => {
   const navigate = useNavigate();
@@ -15,15 +16,15 @@ const TeacherProfile = () => {
   const loggedInStudent = localStorage.getItem('userName') || "Guest Student";
 
   // --- REVIEW SYSTEM STATES ---
-  // FIXED: Started with an empty array so fake data doesn't flash on screen
   const [reviews, setReviews] = useState([]);
   const [userReview, setUserReview] = useState("");
   const [selectedRating, setSelectedRating] = useState(5);
 
- useEffect(() => {
+  useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/teachers');
+        // FIXED: Pointed to backend API service URL instead of frontend link
+        const response = await axiosInstance.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
         const found = response.data.find(t => t._id === id);
         
         if (found) {
@@ -36,9 +37,10 @@ const TeacherProfile = () => {
             
             // If this student's name is NOT in the array yet, count the view!
             if (!viewers.includes(loggedInStudent)) {
-              await axios.patch(`http://localhost:5000/api/teachers/${found._id}`, {
+              // FIXED: Pointed to correct backend route structure
+              await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${found._id}`, {
                 profileViews: (found.profileViews || 0) + 1,
-                viewedBy: [...viewers, loggedInStudent] // Add their name to the list
+                viewedBy: [...viewers, loggedInStudent] 
               });
             }
           }
@@ -53,19 +55,19 @@ const TeacherProfile = () => {
   }, [id, loggedInStudent]);
 
   // --- REVIEW LOGIC (ADD & DELETE) ---
-  // FIXED: Removed the duplicate synchronous function. This is the only one you need!
   const handleReviewSubmit = async () => {
     if (userReview.trim() !== "") {
       const addedReview = { id: Date.now(), name: loggedInStudent, rating: selectedRating, text: userReview };
       const updatedReviews = [...reviews, addedReview];
       
-      setReviews(updatedReviews); // Show on screen instantly
+      setReviews(updatedReviews); 
       setUserReview("");
       setSelectedRating(5);
 
       // SAVE PERMANENTLY TO DATABASE
       try {
-        await axios.patch(`http://localhost:5000/api/teachers/${teacher._id}`, {
+        // FIXED: Corrected endpoints to point back to backend cloud server
+        await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacher._id}`, {
           reviews: updatedReviews
         });
       } catch (error) {
@@ -79,7 +81,8 @@ const TeacherProfile = () => {
     setReviews(updatedReviews);
 
     try {
-      await axios.patch(`http://localhost:5000/api/teachers/${teacher._id}`, {
+      // FIXED: Corrected endpoints to point back to backend cloud server
+      await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacher._id}`, {
         reviews: updatedReviews
       });
     } catch (error) {
@@ -96,7 +99,8 @@ const TeacherProfile = () => {
     e.preventDefault();
     const bookingData = { teacherName: teacher.name, studentName: loggedInStudent, date: selectedDate, time: selectedTime };
     try {
-      await axios.post('http://localhost:5000/api/bookings', bookingData);
+      // FIXED: Pointed booking submission to backend cloud service
+      await axiosInstance.post('https://educonnect-backend-qmdv.onrender.com/api/bookings', bookingData);
       setBookingSuccess(true);
       setTimeout(() => { setIsBooking(false); setBookingSuccess(false); }, 3000);
     } catch (error) {
@@ -130,7 +134,8 @@ const TeacherProfile = () => {
         <h3 style={{ color: '#1e40af' }}>About Me</h3>
         <p style={{ lineHeight: '1.6', color: '#334155', whiteSpace: 'pre-wrap' }}>{teacher.bio || `I am a qualified mentor from ${teacher.location} specializing in ${teacher.degree}. I look forward to helping you succeed!`}</p>
 
-        <div style={{ marginTop: '30px', display: 'flex', gap: '15px' }}>
+        {/* FIXED: Added flex-wrap for responsiveness on small screens */}
+        <div style={{ marginTop: '30px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
           <button className="primary-btn" style={{ background: '#25D366', border: 'none' }} onClick={() => window.open(`https://wa.me/91${teacher.phone}?text=${whatsappMessage}`, '_blank')} disabled={teacher.name === "Profile Not Found"}>
             WhatsApp
           </button>

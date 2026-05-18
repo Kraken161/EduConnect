@@ -17,10 +17,12 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const teacherRes = await axios.get('http://localhost:5000/api/teachers');
+        // FIXED: Pointed teacher fetch endpoint to your live cloud backend
+        const teacherRes = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
         setAllTeachers(teacherRes.data);
         
-        const bookingRes = await axios.get('http://localhost:5000/api/bookings');
+        // FIXED: Pointed booking fetch endpoint to your live cloud backend
+        const bookingRes = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/bookings');
         const studentBookings = bookingRes.data.filter(b => b.studentName === loggedInStudent);
         setMyBookings(studentBookings);
 
@@ -46,7 +48,6 @@ const StudentDashboard = () => {
     <div className="home-container">
       <div className="glass-card" style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'left' }}>
         
-        {/* FIXED: Removed the extra logout button here */}
         <div style={{ marginBottom: '20px' }}>
           <h2 style={{ color: '#1e40af', margin: 0 }}>Welcome, {loggedInStudent}</h2>
         </div>

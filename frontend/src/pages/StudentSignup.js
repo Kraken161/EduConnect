@@ -16,8 +16,8 @@ const StudentSignup = () => {
   const handleSignup = async (e) => {
     e.preventDefault();
     try {
-      // Post new student to backend
-      await axios.post('http://localhost:5000/api/students', formData);
+      // FIXED: Swapped frontend static URL for your live backend cloud API service
+      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/students', formData);
       
       // Save session
       localStorage.setItem('userName', formData.name);
@@ -35,7 +35,7 @@ const StudentSignup = () => {
       <div className="glass-card" style={{ maxWidth: '500px', margin: '0 auto' }}>
         <h2 style={{ color: '#1e40af', marginBottom: '20px' }}>Student Registration</h2>
         
-        <form onSubmit={handleSignup} style={{ textAlign: 'left' }}>
+        <form onSubmit={handleSignup} style={{ textAlgin: 'left', textAlign: 'left' }}>
           
           <div className="form-group">
             <label>Full Name</label>
@@ -78,7 +78,7 @@ const StudentSignup = () => {
             </select>
           </div>
 
-          <button type="submit" className="primary-btn full-width" style={{ marginTop: '10px' }}>
+          <button type="submit" className="primary-btn" style={{ marginTop: '10px', width: '100%' }}>
             Complete Sign Up
           </button>
         </form>

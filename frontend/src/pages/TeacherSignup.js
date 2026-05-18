@@ -45,7 +45,8 @@ const TeacherSignup = () => {
     };
 
     try {
-      await axios.post('http://localhost:5000/api/teachers', newTeacher);
+      // FIXED: Pointed registration endpoint directly to your live cloud server
+      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/teachers', newTeacher);
       localStorage.setItem('userName', name);
       localStorage.setItem('userRole', 'teacher');
       navigate('/teacher-dashboard');
@@ -143,7 +144,7 @@ const TeacherSignup = () => {
             />
           </div>
 
-          <button type="submit" className="primary-btn full-width" style={{ marginTop: '15px' }}>
+          <button type="submit" className="primary-btn full-width" style={{ marginTop: '15px', width: '100%' }}>
             Register as Teacher
           </button>
         </form>

@@ -19,7 +19,8 @@ const TeacherDashboard = () => {
   useEffect(() => {
     const fetchMyData = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/teachers');
+        // FIXED: Swapped out the static site link for your live cloud database API stream
+        const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
         const myProfile = response.data.find(t => t.name === loggedInUser);
         
         if (myProfile) {
@@ -49,7 +50,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        <div style={{ marginBottom: '20px' }}>
+        <div style={{ FluxMargin: '20px', marginBottom: '20px' }}>
           <h2 style={{ color: '#1e40af', margin: 0 }}>Teacher Portal</h2>
         </div>
         

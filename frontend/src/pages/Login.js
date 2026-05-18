@@ -12,8 +12,8 @@ const Login = () => {
     setError('');
     
     try {
-      // Sending login request to the backend
-      const response = await axios.post('http://localhost:5000/api/login', credentials);
+      // FIXED: Swapped out the static site link for your live cloud backend login service endpoint
+      const response = await axios.post('https://educonnect-backend-qmdv.onrender.com/api/login', credentials);
       
       // If successful, save the real user data to memory
       localStorage.setItem('userRole', credentials.role);
@@ -63,7 +63,8 @@ const Login = () => {
               required
               onChange={(e) => setCredentials({...credentials, phone: e.target.value})}
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-            />
+            >
+            </input>
           </div>
 
           <div className="form-group">
@@ -77,7 +78,7 @@ const Login = () => {
             />
           </div>
 
-          <button type="submit" className="primary-btn full-width" style={{ marginTop: '10px' }}>
+          <button type="submit" className="primary-btn" style={{ marginTop: '10px', width: '100%' }}>
             Login
           </button>
         </form>

@@ -4,9 +4,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 // Import Database Models (FIXED: Explicitly lowercase paths to match Linux deployment standards)
-const Booking = require('./models/booking'); 
-const Teacher = require('./models/teacher');
-const Student = require('./models/student');
+const Booking = require('./models/Booking'); 
+const Teacher = require('./models/Teacher');
+const Student = require('./models/Student');
 
 const app = express();
 

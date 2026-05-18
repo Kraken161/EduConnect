@@ -1,0 +1,223 @@
+/* General Setup */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #e0e7ff 0%, #ffffff 100%);
+  min-height: 100vh;
+  color: #1e293b;
+}
+
+/* Home Page Styling */
+.home-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 60px 20px;
+  text-align: center;
+  animation: fadeIn 1s ease-out;
+  animation: fadeInPage 0.6s ease-in-out;
+}
+
+h1 {
+  font-size: 3rem;
+  color: #1e40af;
+  margin-bottom: 10px;
+}
+
+.summary-box {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  margin: 40px 0;
+}
+
+/* Glassmorphism Card (The Professional Look) */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  max-width: 450px;
+  margin: 40px auto;
+}
+
+/* Buttons with Animation */
+.primary-btn {
+  background: #2563eb;
+  color: white;
+  padding: 15px 40px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+}
+
+.primary-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+/* Review Section Placeholder */
+.empty-reviews {
+  background: #f1f5f9;
+  border: 2px dashed #cbd5e1;
+  padding: 30px;
+  border-radius: 12px;
+  margin: 20px 0;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 5px;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
+  transition: all 0.2s;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide {
+  animation: slideDown 0.4s ease-out;
+}
+
+@keyframes fadeInPage {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =========================================
+   📱 MOBILE RESPONSIVENESS FIXES
+   Aggressive compaction version to fix scaling and gaps.
+========================================= */
+@media (max-width: 768px) {
+  /* 1. Reduce overall vertical gaps and margins */
+  .home-container {
+    padding: 15px 10px !important;
+  }
+
+  h1 {
+    font-size: 1.8rem !important;
+    margin-bottom: 5px !important;
+  }
+  
+  p {
+    font-size: 0.9rem !important;
+    margin-bottom: 10px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* 2. Compact the cards and reduce their spacing to fix vertical gap issue */
+  .glass-card {
+    padding: 15px !important;
+    margin: 10px auto !important;
+    width: 95% !important;
+    border-radius: 12px !important;
+  }
+
+  /* 3. Handle Grid layouts (SignUp and Dashboard Stats) */
+  div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* TEACHER DASHBOARD FIX: Compact stats text to fit mobile */
+  div[style*="grid-template-columns"] div {
+    padding: 15px !important;
+  }
+
+  div[style*="grid-template-columns"] h2 {
+    font-size: 1.8rem !important;
+    margin: 0 !important;
+  }
+  
+  div[style*="grid-template-columns"] h4 {
+    font-size: 1rem !important;
+    margin: 0 0 5px 0 !important;
+  }
+  
+  div[style*="grid-template-columns"] p {
+    font-size: 0.8rem !important;
+    margin: 0 !important;
+    white-space: wrap !important;
+  }
+
+  /* 4. Handle Flexbox layouts (Dashboard filters, Profile Buttons) */
+  .filter-section {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  /* Stacks WhatsApp, Book Class, View Profile buttons */
+  div[style*="display: flex"][style*="gap: 15px"] {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Force buttons and inputs to fill full width */
+  .primary-btn, select, input, .filter-section select {
+    width: 100% !important;
+    font-size: 0.9rem !important;
+    padding: 12px !important;
+    margin: 0 !important;
+  }
+
+  /* 5. TEACHER DASHBOARD FIX: Make the Incoming Requests table horizontally swipeable */
+  div[style*="overflow: hidden"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important; 
+    -webkit-overflow-scrolling: touch !important; 
+    padding-bottom: 10px !important; /* Breathing room for the scrollbar */
+  }
+  
+  table {
+    width: 100% !important;
+    white-space: nowrap !important; /* Prevents text from squishing */
+  }
+  
+  th, td {
+    padding: 12px 15px !important; 
+  }
+}

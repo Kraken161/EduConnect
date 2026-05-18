@@ -1,0 +1,90 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const StudentSignup = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    password: '',
+    educationLevel: '',
+    specificClass: '',
+    location: '' 
+  });
+  const navigate = useNavigate();
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    try {
+      // Post new student to backend
+      await axios.post('http://localhost:5000/api/students', formData);
+      
+      // Save session
+      localStorage.setItem('userName', formData.name);
+      localStorage.setItem('userRole', 'student');
+      
+      navigate('/student-dashboard');
+    } catch (error) {
+      console.error("Signup failed:", error);
+      alert("Registration failed. Please make sure the backend is running.");
+    }
+  };
+
+  return (
+    <div className="home-container">
+      <div className="glass-card" style={{ maxWidth: '500px', margin: '0 auto' }}>
+        <h2 style={{ color: '#1e40af', marginBottom: '20px' }}>Student Registration</h2>
+        
+        <form onSubmit={handleSignup} style={{ textAlign: 'left' }}>
+          
+          <div className="form-group">
+            <label>Full Name</label>
+            <input type="text" placeholder="First and Last Name" required 
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+          </div>
+
+          <div className="form-group">
+            <label>Phone Number (+91)</label>
+            <input type="tel" placeholder="Enter 10 digit number" required 
+              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+          </div>
+
+          <div className="form-group">
+            <label>Create Password</label>
+            <input type="password" placeholder="Min. 6 characters" required 
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+          </div>
+
+          <div className="form-group">
+            <label>Education Level</label>
+            <select required onChange={(e) => setFormData({...formData, educationLevel: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <option value="">Select Level</option>
+              <option value="school">School (Class 1-10)</option>
+              <option value="college">Higher Secondary (11-12)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Select City / Town</label>
+            <select required onChange={(e) => setFormData({...formData, location: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <option value="">-- Select Location --</option>
+              <option value="Guwahati">Guwahati</option>
+              <option value="Dibrugarh">Dibrugarh</option>
+              <option value="Jorhat">Jorhat</option>
+              <option value="Silchar">Silchar</option>
+            </select>
+          </div>
+
+          <button type="submit" className="primary-btn full-width" style={{ marginTop: '10px' }}>
+            Complete Sign Up
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default StudentSignup;

@@ -3,10 +3,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-// Import Database Models
-const Booking = require('./models/Booking'); 
-const Teacher = require('./models/Teacher');
-const Student = require('./models/Student');
+// Import Database Models (FIXED: Explicitly lowercase paths to match Linux deployment standards)
+const Booking = require('./models/booking'); 
+const Teacher = require('./models/teacher');
+const Student = require('./models/student');
 
 const app = express();
 
@@ -18,6 +18,11 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("💻 MongoDB Connected Successfully"))
   .catch(err => console.log("❌ DB Connection Error:", err));
+
+// Quick health check home route so your base Render URL doesn't say "Not Found" anymore
+app.get('/', (req, res) => {
+    res.send("🚀 EduConnect Backend API is Live and Running!");
+});
 
 // ==========================================
 // BOOKING ROUTES
@@ -50,6 +55,7 @@ app.get('/api/bookings', async (req, res) => {
         res.status(500).json({ error: "Could not fetch bookings" });
     }
 });
+
 // PATCH: Update Teacher (Edits, Views, and Reviews)
 app.patch('/api/teachers/:id', async (req, res) => {
     try {
@@ -92,8 +98,8 @@ app.delete('/api/bookings/:id', async (req, res) => {
 // STUDENT ROUTES
 // ==========================================
 
-// POST: Save a newly registered student
-app.post('/api/students', async (req, res) => {
+// FIXED: Handles BOTH standard and alternative registration paths seamlessly
+const handleStudentSignup = async (req, res) => {
     try {
         const newStudent = new Student(req.body);
         await newStudent.save();
@@ -103,14 +109,17 @@ app.post('/api/students', async (req, res) => {
         console.error("Error registering student:", error);
         res.status(500).json({ error: "Failed to register student" });
     }
-});
+};
+
+app.post('/api/students', handleStudentSignup);
+app.post('/api/students/signup', handleStudentSignup); // Handles your frontend URL structure!
 
 // ==========================================
 // TEACHER ROUTES
 // ==========================================
 
-// POST: Save a newly registered teacher to the database
-app.post('/api/teachers', async (req, res) => {
+// FIXED: Handles BOTH standard and alternative teacher registration paths seamlessly
+const handleTeacherSignup = async (req, res) => {
     try {
         const newTeacher = new Teacher(req.body);
         await newTeacher.save();
@@ -120,9 +129,12 @@ app.post('/api/teachers', async (req, res) => {
         console.error("Error registering teacher:", error);
         res.status(500).json({ error: "Failed to register teacher" });
     }
-});
+};
 
-// GET: Fetch all teachers (This will feed your Student Dashboard!)
+app.post('/api/teachers', handleTeacherSignup);
+app.post('/api/teachers/signup', handleTeacherSignup); // Handles your frontend URL structure!
+
+// GET: Fetch all teachers
 app.get('/api/teachers', async (req, res) => {
     try {
         const allTeachers = await Teacher.find().sort({ createdAt: -1 });
@@ -137,20 +149,17 @@ app.get('/api/teachers', async (req, res) => {
 // UNIVERSAL LOGIN ROUTE
 // ==========================================
 
-// POST: Universal Login Route (Checks both Teachers and Students)
 app.post('/api/login', async (req, res) => {
     try {
         const { phone, password, role } = req.body;
         let user;
 
-        // Search the correct database based on the dropdown they selected on the Login page
         if (role === 'teacher') {
             user = await Teacher.findOne({ phone: phone, password: password });
         } else if (role === 'student') {
             user = await Student.findOne({ phone: phone, password: password });
         }
 
-        // If a match is found in the database, let them in!
         if (user) {
             res.status(200).json({ message: "Login success", name: user.name });
         } else {
@@ -166,8 +175,7 @@ app.post('/api/login', async (req, res) => {
 // SERVER START
 // ==========================================
 
-// 7. Start Server using the PORT from .env, or default to 5000
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`🚀 Server spinning up on http://localhost:${PORT}`);
+    console.log(`🚀 Server spinning up on port ${PORT}`);
 });

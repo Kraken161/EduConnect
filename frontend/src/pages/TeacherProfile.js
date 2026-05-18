@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'react-serif'; // Note: Ensure your bundle resolves this correctly or keep standard 'axios'
-import axiosInstance from 'axios'; 
+import axiosInstance from 'axios'; // Cleaned up and removed the fake react-serif import
 
 const TeacherProfile = () => {
   const navigate = useNavigate();

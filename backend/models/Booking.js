@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
   teacherName: { type: String, required: true },
-  studentName: { type: String, default: "Guest Student" }, // Kept from your old code
+  studentName: { type: String, default: "Guest Student" }, 
+  studentPhone: { type: String, required: true }, // Essential structural link trace mapping
   date: { type: String, required: true },
   time: { type: String, required: true },
   status: { 
@@ -10,6 +11,6 @@ const bookingSchema = new mongoose.Schema({
     default: 'Pending', 
     enum: ['Pending', 'Confirmed', 'Cancelled'] 
   }
-}, { timestamps: true }); // This replaces createdAt and adds an updatedAt automatically
+}, { timestamps: true }); 
 
 module.exports = mongoose.model('Booking', bookingSchema);

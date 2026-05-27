@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
+import SearchMentors from './pages/SearchMentors';
 import SignupChoice from './pages/SignupChoice';
 import StudentSignup from './pages/StudentSignup';
 import TeacherSignup from './pages/TeacherSignup';
@@ -11,7 +12,8 @@ import Navbar from './components/Navbar';
 // import Dashboard from './components/Dashboard'; // We can comment this out to avoid confusion
 import Login from './pages/Login';
 import './App.css';
-
+import Settings from './pages/Settings';
+import Chats from './pages/Chats';
 function App() {
   return (
     <Router>
@@ -34,6 +36,11 @@ function App() {
         <Route path="/profile/:id" element={<TeacherProfile/>} />
         
         <Route path="/edit-profile" element={<EditProfile />} />
+        <Route path="/search-mentors" element={<SearchMentors />} />
+        <Route path="/student-settings" element={<Settings />} />
+        <Route path="/teacher-settings" element={<Settings />} />
+        <Route path="/student-chats" element={<Chats />} />
+        <Route path="/teacher-chats" element={<Chats />} />
       </Routes>
 
       <footer style={{ 

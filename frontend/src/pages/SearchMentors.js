@@ -1,0 +1,230 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const SearchMentors = () => {
+  const navigate = useNavigate();
+  const loggedInStudentName = localStorage.getItem('userName') || "Student";
+  const loggedInStudentPhone = localStorage.getItem('userPhone') || "";
+
+  // Data Pipeline States
+  const [teachers, setTeachers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Roster Filter Alignment States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("All");
+  const [selectedCity, setSelectedCity] = useState("All");
+
+  // 5-CARD PAGINATION STATE TRACKING
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      try {
+        const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+        setTeachers(response.data);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Error pulling catalog entries:", err);
+        setIsLoading(false);
+      }
+    };
+    fetchTeachers();
+  }, []);
+
+  // Filter Algorithm Evaluation Matrix
+  const filteredTeachers = teachers.filter(t => {
+    const searchString = ((t.name || "") + " " + (t.degree || "")).toLowerCase();
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+    const matchesCity = selectedCity === "All" || t.location === selectedCity;
+    const matchesSubject = selectedSubject === "All" || (t.subjects && t.subjects.includes(selectedSubject));
+    
+    return matchesSearch && matchesCity && matchesSubject;
+  });
+
+  // MATHEMATICAL SLICING FOR THE 5-ITEM PAGINATION SPLIT
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTeachersPageSlice = filteredTeachers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredTeachers.length / itemsPerPage);
+
+  // Reset page position index to 1 instantly when a user types a new search query
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleCityChange = (e) => {
+    setSelectedCity(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleSubjectChange = (e) => {
+    setSelectedSubject(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // INTERACTIVE REAL-TIME CHAT REQUEST INITIATOR (Replaces WhatsApp completely)
+  const handleInitiateChatRequest = async (teacher) => {
+    if (!loggedInStudentPhone) {
+      alert("⚠️ Error: Student session identifier missing. Please log out and sign back in.");
+      return;
+    }
+
+    try {
+      const chatPayload = {
+        teacherName: teacher.name,
+        studentPhone: loggedInStudentPhone,
+        allowedMembers: [teacher.phone, loggedInStudentPhone],
+        isGroup: false,
+        messages: [{
+          sender: "System",
+          text: `👋 Chat request initialized by ${loggedInStudentName}. You can now converse and discuss tutorial paths here.`
+        }]
+      };
+
+      // Calls our newly introduced server.js single-file chat router node
+      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/chats/create', chatPayload);
+      
+      // Instantly generate a system log notice to trigger the teacher's notification bell container
+      const notificationPayload = {
+        recipientPhone: teacher.phone,
+        message: `💬 ${loggedInStudentName} has initiated a real-time private chat request with you!`
+      };
+      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/notifications', notificationPayload);
+
+      alert(`🎉 Chat workspace with Mentor ${teacher.name} initialized successfully! Navigate to Class Chats in your sidebar menu to message them.`);
+    } catch (err) {
+      console.error(err);
+      alert("This chat channel workspace is already active or server execution failed.");
+    }
+  };
+
+  const allAvailableSubjects = ["All", "Science", "Mathematics", "English", "Social Science", "Physics", "Chemistry", "Biology"];
+  const locations = ["All", "Guwahati", "Dibrugarh", "Jorhat", "Silchar"];
+
+  return (
+    <div className="premium-dashboard-wrapper">
+      
+      {/* COMPACT STICKY LEFT SIDEBAR NAVIGATION RAIL */}
+      <aside className="pinterest-sidebar">
+        <div>
+          <div className="sidebar-brand-title">EduConnect</div>
+          <nav className="sidebar-navigation-links">
+            <button className="sidebar-nav-item" onClick={() => navigate('/student-dashboard')}>🏠 Dashboard Overview</button>
+            <button className="sidebar-nav-item active">🔍 Search Tutors</button>
+            <button className="sidebar-nav-item" onClick={() => navigate('/student-chats')}>💬 Class Chats</button>
+            <button className="sidebar-nav-item" onClick={() => navigate('/student-settings')}>⚙️ Portal Settings</button>
+          </nav>
+        </div>
+      </aside>
+
+      {/* CORE CANVAS AREA AREA */}
+      <main className="dashboard-main-content">
+        <header style={{ marginBottom: '32px', textAlign: 'left' }}>
+          <h2>Find Your Mentor</h2>
+          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Browse verified educators across Assam using subject parameters.</p>
+        </header>
+
+        {/* TOP FILTER BAR GRID ROW */}
+        <section className="search-filter-top-bar">
+          <input 
+            type="text" 
+            placeholder="Search credentials, subjects or names..." 
+            value={searchTerm}
+            onChange={handleSearchChange}
+            style={{ flex: 2, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+          />
+          
+          <select value={selectedSubject} onChange={handleSubjectChange} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <option value="All">Filter by Subject (All)</option>
+            {allAvailableSubjects.filter(s => s !== "All").map(sub => (
+              <option key={sub} value={sub}>{sub}</option>
+            ))}
+          </select>
+
+          <select value={selectedCity} onChange={handleCityChange} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <option value="All">Filter by City (All)</option>
+            {locations.filter(c => c !== "All").map(city => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+        </section>
+
+        {/* RE-ARRANGED 5-CARD TRACK OVERLAP DEFENSIVE SPACE */}
+        <section className="mentor-search-cards-grid">
+          {isLoading ? (
+            <p style={{ textAlign: 'center', color: '#64748b' }}>Syncing mentor database entries...</p>
+          ) : currentTeachersPageSlice.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#ef4444', fontWeight: '500' }}>No teachers match your search query filters in this territory layer.</p>
+          ) : (
+            currentTeachersPageSlice.map(teacher => (
+              <div key={teacher._id} className="glass-card" style={{ margin: '0', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', textAlign: 'left', maxWidth: '100%' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <h4 style={{ margin: 0, color: '#1e40af', fontSize: '1.2rem', fontWeight: '700' }}>{teacher.name}</h4>
+                    {/* DYNAMIC CALCULATED AVERAGE RATING STAR COMPONENT DISPLAY */}
+                    <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: '700' }}>
+                      ★ {teacher.rating ? Number(teacher.rating).toFixed(1) : "5.0"} Rating
+                    </span>
+                  </div>
+                  
+                  <p style={{ margin: '8px 0 4px 0', fontSize: '0.9rem', color: '#334155' }}>
+                    <strong>Specialization Path:</strong> {teacher.subjects && teacher.subjects.length > 0 ? teacher.subjects.join(", ") : "General Matrix"}
+                  </p>
+                  <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>
+                    🎓 {teacher.degree.toUpperCase()} • 📍 District Zone: {teacher.location} • {teacher.teachingLevel || "General Core"}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    onClick={() => handleInitiateChatRequest(teacher)}
+                    className="primary-btn" 
+                    style={{ backgroundColor: '#10b981' }}
+                  >
+                    💬 Chat Request
+                  </button>
+                  <button 
+                    onClick={() => navigate(`/profile/${teacher._id}`)} 
+                    className="primary-btn"
+                  >
+                    View Profile
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* 5-ITEM CONTROL PAGINATION INTERFACE TRACK ROW */}
+        {totalPages > 1 && (
+          <div className="pagination-controls-row">
+            <button 
+              className="pagination-btn" 
+              disabled={currentPage === 1} 
+              onClick={() => setCurrentPage(prev => prev - 1)}
+            >
+              ← Previous
+            </button>
+            <span className="pagination-text-indicator">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button 
+              className="pagination-btn" 
+              disabled={currentPage === totalPages} 
+              onClick={() => setCurrentPage(prev => prev + 1)}
+            >
+              Next →
+            </button>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+};
+
+export default SearchMentors;

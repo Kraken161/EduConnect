@@ -12,13 +12,14 @@ const Login = () => {
     setError('');
     
     try {
-      // FIXED: Swapped out the static site link for your live cloud backend login service endpoint
+      // Swapped out the static site link for your live cloud backend login service endpoint
       const response = await axios.post('https://educonnect-backend-qmdv.onrender.com/api/login', credentials);
       
       // If successful, save the real user data to memory
       localStorage.setItem('userRole', credentials.role);
       localStorage.setItem('userName', response.data.name); 
-      localStorage.setItem('userPhone', credentials.phone);
+      // SAVING REAL PHONE PARAMETERS FROM SERVER RESPONSE PAYLOAD
+      localStorage.setItem('userPhone', response.data.phone || credentials.phone);
 
       // Route to the correct dashboard
       if (credentials.role === 'student') {
@@ -61,10 +62,10 @@ const Login = () => {
               type="tel" 
               placeholder="Enter 10-digit number" 
               required
+              value={credentials.phone}
               onChange={(e) => setCredentials({...credentials, phone: e.target.value})}
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-            >
-            </input>
+            />
           </div>
 
           <div className="form-group">
@@ -73,6 +74,7 @@ const Login = () => {
               type="password" 
               placeholder="Enter your password" 
               required
+              value={credentials.password}
               onChange={(e) => setCredentials({...credentials, password: e.target.value})}
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
             />

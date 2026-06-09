@@ -16,14 +16,19 @@ const Chats = () => {
   
   const [msgContextMenu, setMsgContextMenu] = useState({ visible: false, x: 0, y: 0, msgId: null });
   const [headerContextMenu, setHeaderContextMenu] = useState({ visible: false, x: 0, y: 0 });
+  
+  // NEW: Context Menu state for right-clicking the sidebar connections
+  const [sidebarContextMenu, setSidebarContextMenu] = useState({ visible: false, x: 0, y: 0, room: null });
+  
   const [toast, setToast] = useState("");
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 4000);
+    setTimeout(() => setToast(""), 5000);
   };
 
-  const messagesEndRef = useRef(null);
+  // FIXED: Using a container ref instead of an end ref to prevent whole-page jumping
+  const chatContainerRef = useRef(null);
 
   const fetchChatRosters = async () => {
     try {
@@ -48,8 +53,11 @@ const Chats = () => {
     return () => clearInterval(livePollingInterval);
   }, [activeRoom?._id]);
 
+  // FIXED SCROLL GLITCH: This guarantees ONLY the inner chat box scrolls, not the page
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [activeRoom?.messages?.length]);
 
   const handleMsgRightClick = (e, msg) => {
@@ -57,6 +65,7 @@ const Chats = () => {
     e.preventDefault(); 
     setMsgContextMenu({ visible: true, x: e.clientX, y: e.clientY, msgId: msg._id });
     setHeaderContextMenu({ visible: false, x: 0, y: 0 }); 
+    setSidebarContextMenu({ visible: false, x: 0, y: 0, room: null });
   };
 
   const handleHeaderRightClick = (e) => {
@@ -64,11 +73,22 @@ const Chats = () => {
     e.preventDefault();
     setHeaderContextMenu({ visible: true, x: e.clientX, y: e.clientY });
     setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null }); 
+    setSidebarContextMenu({ visible: false, x: 0, y: 0, room: null });
+  };
+
+  // NEW: Right-click handler for Sidebar Direct Chats
+  const handleSidebarRightClick = (e, room) => {
+    if (room.isGroup) return; // Only allow removing 1-on-1 connections
+    e.preventDefault();
+    setSidebarContextMenu({ visible: true, x: e.clientX, y: e.clientY, room: room });
+    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null });
+    setHeaderContextMenu({ visible: false, x: 0, y: 0 });
   };
 
   const closeAllMenus = () => {
     setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null });
     setHeaderContextMenu({ visible: false, x: 0, y: 0 });
+    setSidebarContextMenu({ visible: false, x: 0, y: 0, room: null });
   };
 
   const handleSendMessage = async (e, pinStatus = false) => {
@@ -105,17 +125,13 @@ const Chats = () => {
       showToast("🗑️ Message deleted successfully.");
       fetchChatRosters();
     } catch (err) {
-      if (err.response?.status === 404) {
-        showToast("❌ Backend Error: Route not found. Deploy your updated server.js to Render!");
-      } else {
-        showToast("❌ Failed to delete message.");
-      }
+      showToast("❌ Failed to delete message.");
     }
   };
 
   const handleLeaveClass = async () => {
     closeAllMenus();
-    if (!window.confirm(`Are you sure you want to leave ${activeRoom.subjectChannelName}?`)) return;
+    if (!window.confirm(`Are you sure you want to leave the ${activeRoom.subjectChannelName} class room?`)) return;
     
     try {
       await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${activeRoom._id}/leave`, {
@@ -125,11 +141,25 @@ const Chats = () => {
       setActiveRoom(null); 
       fetchChatRosters(); 
     } catch (err) {
-      if (err.response?.status === 404) {
-        showToast("❌ Backend Error: Leave route not found. Deploy your updated server.js to Render!");
-      } else {
-        showToast("❌ Failed to leave class.");
-      }
+      showToast("❌ Failed to leave class.");
+    }
+  };
+
+  // NEW: API call to completely sever a 1-on-1 connection
+  const handleRemoveConnection = async () => {
+    const targetRoom = sidebarContextMenu.room;
+    closeAllMenus();
+    
+    if (!targetRoom) return;
+    if (!window.confirm(`Are you sure you want to permanently remove this connection?`)) return;
+
+    try {
+      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${targetRoom._id}`);
+      showToast("🚫 Connection removed permanently.");
+      if (activeRoom && activeRoom._id === targetRoom._id) setActiveRoom(null);
+      fetchChatRosters();
+    } catch (err) {
+      showToast("❌ Failed to remove connection.");
     }
   };
 
@@ -163,7 +193,7 @@ const Chats = () => {
 
       await axios.post('https://educonnect-backend-qmdv.onrender.com/api/notifications', {
         recipientPhone: activeRoom.studentPhone,
-        message: `📚 You have been explicitly whitelisted and added to a Class Group Channel by Mentor ${loggedInUserName}!`
+        message: `📚 You have been added to a Class Group Channel by Mentor ${loggedInUserName}!`
       });
 
       showToast("✅ Student instantly assigned to the class!");
@@ -187,7 +217,8 @@ const Chats = () => {
   const directChats = chatRooms.filter(r => !r.isGroup);
 
   return (
-    <div className="premium-dashboard-wrapper" style={{ position: 'relative' }}>
+    // FIXED FOOTER ISSUE: Strict 100vh and hidden overflow locks the page structure perfectly
+    <div className="premium-dashboard-wrapper" style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '30px', right: '30px', background: '#1e293b', color: 'white', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 9999, fontWeight: 'bold', animation: 'slideDown 0.3s ease-out' }}>
@@ -195,26 +226,12 @@ const Chats = () => {
         </div>
       )}
 
+      {/* --- ALL CONTEXT MENUS --- */}
       {msgContextMenu.visible && (
         <>
           <div onClick={closeAllMenus} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }} />
-          <div 
-            style={{ 
-              position: 'fixed', top: msgContextMenu.y, left: msgContextMenu.x, 
-              backgroundColor: '#ffffff', 
-              border: '1px solid #cbd5e1', 
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
-              borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' 
-            }}
-          >
-            <button 
-              onClick={() => handleDeleteMessage(msgContextMenu.msgId)} 
-              style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }}
-              onMouseOver={(e) => e.target.style.background = '#fee2e2'}
-              onMouseOut={(e) => e.target.style.background = 'transparent'}
-            >
-              🗑️ Delete Message
-            </button>
+          <div style={{ position: 'fixed', top: msgContextMenu.y, left: msgContextMenu.x, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' }}>
+            <button onClick={() => handleDeleteMessage(msgContextMenu.msgId)} style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }} onMouseOver={(e) => e.target.style.background = '#fee2e2'} onMouseOut={(e) => e.target.style.background = 'transparent'}>🗑️ Delete Message</button>
           </div>
         </>
       )}
@@ -222,23 +239,18 @@ const Chats = () => {
       {headerContextMenu.visible && (
         <>
           <div onClick={closeAllMenus} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }} />
-          <div 
-            style={{ 
-              position: 'fixed', top: headerContextMenu.y, left: headerContextMenu.x, 
-              backgroundColor: '#ffffff', 
-              border: '1px solid #cbd5e1', 
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
-              borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' 
-            }}
-          >
-            <button 
-              onClick={handleLeaveClass} 
-              style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }}
-              onMouseOver={(e) => e.target.style.background = '#fee2e2'}
-              onMouseOut={(e) => e.target.style.background = 'transparent'}
-            >
-              🚪 Leave Class
-            </button>
+          <div style={{ position: 'fixed', top: headerContextMenu.y, left: headerContextMenu.x, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' }}>
+            <button onClick={handleLeaveClass} style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }} onMouseOver={(e) => e.target.style.background = '#fee2e2'} onMouseOut={(e) => e.target.style.background = 'transparent'}>🚪 Leave Class</button>
+          </div>
+        </>
+      )}
+
+      {/* NEW: Sidebar Connection Context Menu */}
+      {sidebarContextMenu.visible && (
+        <>
+          <div onClick={closeAllMenus} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }} />
+          <div style={{ position: 'fixed', top: sidebarContextMenu.y, left: sidebarContextMenu.x, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' }}>
+            <button onClick={handleRemoveConnection} style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }} onMouseOver={(e) => e.target.style.background = '#fee2e2'} onMouseOut={(e) => e.target.style.background = 'transparent'}>🚫 Remove Connection</button>
           </div>
         </>
       )}
@@ -258,7 +270,7 @@ const Chats = () => {
       <main className="dashboard-main-content">
         <header style={{ marginBottom: '24px', textAlign: 'left' }}>
           <h2>Class Chats Hub</h2>
-          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Right-click (or long-press) messages to delete them, or Class Names to leave.</p>
+          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Right-click connections, messages, or classes to manage them.</p>
         </header>
 
         <div className="chat-workspace-container">
@@ -289,8 +301,10 @@ const Chats = () => {
                 {directChats.map(room => (
                   <button
                     key={room._id}
+                    onContextMenu={(e) => handleSidebarRightClick(e, room)}
                     className={`channel-list-item-btn ${activeRoom?._id === room._id ? 'active' : ''}`}
                     onClick={() => setActiveRoom(room)}
+                    title="Right-click to remove connection"
                   >
                     {userRole === 'teacher' ? `Student: ${getStudentDisplayName(room)}` : `Mentor: ${room.teacherName}`}
                   </button>
@@ -322,7 +336,6 @@ const Chats = () => {
               <>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   
-                  {/* CLEAN HEADER: Just the name nicely aligned */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <h4 
                       onContextMenu={handleHeaderRightClick}
@@ -335,9 +348,7 @@ const Chats = () => {
                       }}
                       title={(userRole === 'student' && activeRoom.isGroup) ? "Right-click to leave class" : ""}
                     >
-                      {activeRoom.isGroup 
-                        ? activeRoom.subjectChannelName 
-                        : (userRole === 'teacher' ? getStudentDisplayName(activeRoom) : activeRoom.teacherName)}
+                      {activeRoom.isGroup ? `Group Room: ${activeRoom.subjectChannelName}` : (userRole === 'teacher' ? getStudentDisplayName(activeRoom) : activeRoom.teacherName)}
                     </h4>
                   </div>
 
@@ -374,7 +385,8 @@ const Chats = () => {
                   </div>
                 )}
 
-                <div className="messages-scroller-window">
+                {/* FIXED: Uses the container ref for safe, glitch-free scrolling */}
+                <div className="messages-scroller-window" ref={chatContainerRef}>
                   {activeRoom.messages?.map((msg, idx) => (
                     <div 
                       key={msg._id || idx} 
@@ -400,7 +412,6 @@ const Chats = () => {
                       </div>
                     </div>
                   ))}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <form onSubmit={(e) => handleSendMessage(e, false)} className="chat-input-footer-tray">

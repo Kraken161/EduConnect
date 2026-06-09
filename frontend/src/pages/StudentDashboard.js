@@ -8,25 +8,23 @@ const StudentDashboard = () => {
   const loggedInStudent = localStorage.getItem('userName') || "Student";
   const loggedInStudentPhone = localStorage.getItem('userPhone') || "";
 
-  // Inline routing states to avoid touching App.js
   const [activeTab, setActiveTab] = useState('overview'); 
-
   const [myBookings, setMyBookings] = useState([]);
+  
+  // Now stores entire Direct Chat room objects so we can delete them
   const [myMentors, setMyMentors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     try {
-      // 1. Fetch Bookings
       const bookingRes = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/bookings');
       const studentBookings = bookingRes.data.filter(b => b.studentName === loggedInStudent);
       setMyBookings(studentBookings);
 
-      // 2. Fetch "My Mentors" dynamically by checking which Group Chats the student belongs to
+      // Fetch 1-on-1 Direct Chat connections to define active Mentors
       const chatRes = await axios.get(`https://educonnect-backend-qmdv.onrender.com/api/chats/${loggedInStudentPhone}?userName=${loggedInStudent}`);
-      const activeGroupChats = chatRes.data.filter(c => c.isGroup);
-      const uniqueMentors = [...new Set(activeGroupChats.map(c => c.teacherName))];
-      setMyMentors(uniqueMentors);
+      const directConnections = chatRes.data.filter(c => !c.isGroup);
+      setMyMentors(directConnections);
 
       setIsLoading(false);
     } catch (error) {
@@ -40,6 +38,19 @@ const StudentDashboard = () => {
       fetchDashboardData();
     }
   }, [loggedInStudent]);
+
+  // NEW: Quick remove mentor function from the Dashboard
+  const handleRemoveMentor = async (roomId, mentorName) => {
+    if (!window.confirm(`Are you sure you want to permanently remove Mentor ${mentorName}?`)) return;
+    
+    try {
+      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${roomId}`);
+      alert("Mentor connection removed successfully.");
+      fetchDashboardData();
+    } catch (err) {
+      alert("Failed to remove mentor. Check connection.");
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -57,10 +68,7 @@ const StudentDashboard = () => {
             <button className={`sidebar-nav-item ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>🏠 Dashboard Overview</button>
             <button className="sidebar-nav-item" onClick={() => navigate('/search-mentors')}>🔍 Search Tutors</button>
             <button className="sidebar-nav-item" onClick={() => navigate('/student-chats')}>💬 Class Chats</button>
-            
-            {/* NEW BOOKINGS SIDEBAR TAB */}
             <button className={`sidebar-nav-item ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => setActiveTab('bookings')}>📅 Bookings</button>
-            
             <button className="sidebar-nav-item" onClick={() => navigate('/student-settings')}>⚙️ Portal Settings</button>
           </nav>
         </div>
@@ -88,7 +96,6 @@ const StudentDashboard = () => {
         <div className="lower-dashboard-split-grid" style={{ gridTemplateColumns: '1fr' }}>
 
           {activeTab === 'overview' ? (
-            // DYNAMIC "MY MENTORS" VIEW
             <section className="broad-table-panel">
               <h3 style={{ margin: '0 0 20px 0', color: '#0f172a' }}>My Mentors</h3>
 
@@ -96,26 +103,34 @@ const StudentDashboard = () => {
                 <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Syncing active curriculum classes...</p>
               ) : myMentors.length === 0 ? (
                 <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
-                  You haven't been added to any active class groups yet. A mentor must assign you to a subject room first!
+                  You don't have any active mentor connections yet. Book a demo to connect!
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {myMentors.map((mentorName, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.01)' }}>
-                      <h4 style={{ margin: 0, color: '#1e40af', fontSize: '1.1rem' }}>Instructor: {mentorName}</h4>
-                      <button 
-                        onClick={() => navigate('/student-chats')} 
-                        style={{ backgroundColor: '#1e40af', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
-                      >
-                        💬 View Classes
-                      </button>
+                  {myMentors.map((room) => (
+                    <div key={room._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.01)' }}>
+                      <h4 style={{ margin: 0, color: '#1e40af', fontSize: '1.1rem' }}>Instructor: {room.teacherName}</h4>
+                      
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          onClick={() => navigate('/student-chats')} 
+                          style={{ backgroundColor: '#1e40af', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                          💬 Go to Chat
+                        </button>
+                        <button 
+                          onClick={() => handleRemoveMentor(room._id, room.teacherName)} 
+                          style={{ backgroundColor: '#f8fafc', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
+                        >
+                          ❌ Remove
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </section>
           ) : (
-            // ISOLATED "BOOKINGS" TAB VIEW
             <section className="broad-table-panel">
               <h3 style={{ margin: '0 0 20px 0', color: '#0f172a' }}>My Bookings</h3>
 

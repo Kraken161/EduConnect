@@ -94,6 +94,17 @@ app.get('/api/bookings', async (req, res) => {
     }
 });
 
+// --- THE MISSING ROUTE WE RESTORED ---
+app.get('/api/teachers', async (req, res) => {
+    try {
+        const allTeachers = await Teacher.find({});
+        res.status(200).json(allTeachers);
+    } catch (error) {
+        res.status(500).json({ error: "Could not fetch teachers" });
+    }
+});
+// -------------------------------------
+
 app.patch('/api/teachers/:id', async (req, res) => {
     try {
         let updatePayload = { ...req.body };
@@ -137,7 +148,7 @@ app.patch('/api/bookings/:id', async (req, res) => {
                 const autoChatRoom = new Chat({
                     teacherName: teacher.name,
                     studentPhone: updatedBooking.studentPhone,
-                    studentName: updatedBooking.studentName,
+                    studentName: updatedBooking.studentName, 
                     allowedMembers: [teacher.phone, updatedBooking.studentPhone],
                     isGroup: false,
                     messages: [{ 
@@ -213,7 +224,6 @@ app.post('/api/chats/channels', async (req, res) => {
     }
 });
 
-// FIXED: Removed the mentor restriction completely. Teachers can add any student.
 app.patch('/api/chats/channels/:id/add-student', async (req, res) => {
     try {
         const { studentPhone } = req.body;

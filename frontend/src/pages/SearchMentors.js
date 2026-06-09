@@ -34,13 +34,25 @@ const SearchMentors = () => {
     fetchTeachers();
   }, []);
 
-  // Filter Algorithm Evaluation Matrix
+  // FIXED & BULLETPROOF Filter Algorithm
   const filteredTeachers = teachers.filter(t => {
-    const searchString = ((t.name || "") + " " + (t.degree || "")).toLowerCase();
-    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
-    const matchesCity = selectedCity === "All" || t.location === selectedCity;
-    const matchesSubject = selectedSubject === "All" || (t.subjects && t.subjects.includes(selectedSubject));
+    // 1. Safe Search Match (checks name, degree, and ignores case)
+    const searchString = `${t.name || ""} ${t.degree || ""} ${t.subjects || ""}`.toLowerCase();
+    const matchesSearch = !searchTerm || searchString.includes(searchTerm.toLowerCase().trim());
     
+    // 2. Safe City Match
+    const matchesCity = selectedCity === "All" || (t.location && t.location.toLowerCase() === selectedCity.toLowerCase());
+    
+    // 3. Safe Subject Match (Handles "All", Arrays, and pure Strings flawlessly)
+    let matchesSubject = selectedSubject === "All";
+    if (selectedSubject !== "All" && t.subjects) {
+        if (Array.isArray(t.subjects)) {
+            matchesSubject = t.subjects.some(sub => sub.toLowerCase() === selectedSubject.toLowerCase());
+        } else if (typeof t.subjects === 'string') {
+            matchesSubject = t.subjects.toLowerCase().includes(selectedSubject.toLowerCase());
+        }
+    }
+
     return matchesSearch && matchesCity && matchesSubject;
   });
 
@@ -65,7 +77,6 @@ const SearchMentors = () => {
     setCurrentPage(1);
   };
 
-  // CORRECTED HANDLER: Sends a pending invitation log request rather than creating a duplicate chat room instantly
   const handleInitiateChatRequest = async (teacher) => {
     if (!loggedInStudentPhone) {
       alert("⚠️ Error: Student identity session is missing. Please log out and sign back in.");
@@ -73,7 +84,6 @@ const SearchMentors = () => {
     }
 
     try {
-      // Injects a specialized allocation packet into the bookings engine collection schema
       await axios.post('https://educonnect-backend-qmdv.onrender.com/api/bookings', {
         teacherName: teacher.name,
         studentName: loggedInStudentName,
@@ -96,7 +106,6 @@ const SearchMentors = () => {
   return (
     <div className="premium-dashboard-wrapper">
       
-      {/* COMPACT STICKY LEFT SIDEBAR NAVIGATION RAIL */}
       <aside className="pinterest-sidebar">
         <div>
           <div className="sidebar-brand-title">EduConnect</div>
@@ -109,7 +118,6 @@ const SearchMentors = () => {
         </div>
       </aside>
 
-      {/* CORE CANVAS DISPLAY WORKSPACE */}
       <main className="dashboard-main-content">
         <header style={{ marginBottom: '32px', textAlign: 'left' }}>
           <h2>Find Your Mentor</h2>
@@ -141,7 +149,6 @@ const SearchMentors = () => {
           </select>
         </section>
 
-        {/* RE-ARRANGED 5-CARD TRACK RE-GRID AREA */}
         <section className="mentor-search-cards-grid">
           {isLoading ? (
             <p style={{ textAlign: 'center', color: '#64748b' }}>Syncing mentor database entries...</p>
@@ -159,7 +166,7 @@ const SearchMentors = () => {
                   </div>
                   
                   <p style={{ margin: '8px 0 4px 0', fontSize: '0.9rem', color: '#334155' }}>
-                    <strong>Specialization Path:</strong> {teacher.subjects && teacher.subjects.length > 0 ? teacher.subjects.join(", ") : "General Matrix"}
+                    <strong>Specialization Path:</strong> {teacher.subjects && teacher.subjects.length > 0 ? teacher.subjects : "General Matrix"}
                   </p>
                   <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>
                     🎓 {teacher.degree ? teacher.degree.toUpperCase() : 'DEGREE'} • 📍 District Zone: {teacher.location} • {teacher.teachingLevel || "General Core"}
@@ -187,7 +194,6 @@ const SearchMentors = () => {
           )}
         </section>
 
-        {/* 5-ITEM CONTROL PAGINATION ROW TRACK */}
         {totalPages > 1 && (
           <div className="pagination-controls-row">
             <button 

@@ -14,7 +14,7 @@ const chatSchema = new mongoose.Schema({
   isGroup: { type: Boolean, default: false },
   subjectChannelName: { type: String, default: "" }, 
   studentPhone: { type: String, default: "" }, 
-  studentName: { type: String, default: "Student" }, // FIXED: Added to schema to remember names
+  studentName: { type: String, default: "Student" }, 
   allowedMembers: [{ type: String }], 
   messages: [{
     sender: { type: String, required: true },
@@ -137,7 +137,7 @@ app.patch('/api/bookings/:id', async (req, res) => {
                 const autoChatRoom = new Chat({
                     teacherName: teacher.name,
                     studentPhone: updatedBooking.studentPhone,
-                    studentName: updatedBooking.studentName, // FIXED: Saves actual name to chat database
+                    studentName: updatedBooking.studentName,
                     allowedMembers: [teacher.phone, updatedBooking.studentPhone],
                     isGroup: false,
                     messages: [{ 
@@ -213,16 +213,12 @@ app.post('/api/chats/channels', async (req, res) => {
     }
 });
 
+// FIXED: Removed the mentor restriction completely. Teachers can add any student.
 app.patch('/api/chats/channels/:id/add-student', async (req, res) => {
     try {
         const { studentPhone } = req.body;
         const channelRoom = await Chat.findById(req.params.id);
         if (!channelRoom) return res.status(404).json({ error: "Channel room missing" });
-
-        const teacher = await Teacher.findOne({ name: channelRoom.teacherName });
-        if (!teacher || !teacher.myMentoredStudents.includes(studentPhone)) {
-            return res.status(403).json({ error: "Access Denied: This student must click 'Accept as Mentor' on their dashboard before you can add them to a subject channel group." });
-        }
 
         const updatedChannel = await Chat.findByIdAndUpdate(
             req.params.id,
@@ -352,39 +348,6 @@ app.patch('/api/teachers/update-profile/:id', async (req, res) => {
         res.json(updatedTeacher);
     } catch (err) {
         res.status(500).send("Profile patch transaction error.");
-    }
-});
-
-app.patch('/api/teachers/accept-mentor-status', async (req, res) => {
-    try {
-        const { studentPhone, studentName, teacherName } = req.body;
-        
-        if (!studentPhone || !teacherName) {
-            return res.status(400).json({ error: "Missing required data for binding." });
-        }
-
-        const cleanTeacherName = teacherName.trim(); 
-        
-        const teacher = await Teacher.findOneAndUpdate(
-            { name: cleanTeacherName },
-            { $addToSet: { myMentoredStudents: studentPhone } }, 
-            { new: true }
-        );
-
-        if (!teacher) {
-            return res.status(404).json({ error: `Teacher '${cleanTeacherName}' not found.` });
-        }
-
-        const alert = new Notification({
-            recipientPhone: teacher.phone,
-            message: `🎓 Great news! ${studentName} accepted you as their long-term Mentor. You can now add them to your Subject Channel rooms.`
-        });
-        await alert.save();
-
-        res.json({ message: "Mentor binding complete", teacher });
-    } catch (err) {
-        console.error("Binding Error:", err);
-        res.status(500).json({ error: err.message });
     }
 });
 

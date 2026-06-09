@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axiosInstance from 'axios'; // Cleaned up and removed the fake react-serif import
+import axiosInstance from 'axios'; 
 
 const TeacherProfile = () => {
   const navigate = useNavigate();
@@ -22,7 +22,6 @@ const TeacherProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // FIXED: Pointed to backend API service URL instead of frontend link
         const response = await axiosInstance.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
         const found = response.data.find(t => t._id === id);
         
@@ -36,7 +35,6 @@ const TeacherProfile = () => {
             
             // If this student's name is NOT in the array yet, count the view!
             if (!viewers.includes(loggedInStudent)) {
-              // FIXED: Pointed to correct backend route structure
               await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${found._id}`, {
                 profileViews: (found.profileViews || 0) + 1,
                 viewedBy: [...viewers, loggedInStudent] 
@@ -65,7 +63,6 @@ const TeacherProfile = () => {
 
       // SAVE PERMANENTLY TO DATABASE
       try {
-        // FIXED: Corrected endpoints to point back to backend cloud server
         await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacher._id}`, {
           reviews: updatedReviews
         });
@@ -80,7 +77,6 @@ const TeacherProfile = () => {
     setReviews(updatedReviews);
 
     try {
-      // FIXED: Corrected endpoints to point back to backend cloud server
       await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacher._id}`, {
         reviews: updatedReviews
       });
@@ -94,16 +90,28 @@ const TeacherProfile = () => {
   // Professional Automated WhatsApp Message
   const whatsappMessage = encodeURIComponent(`Hello, my name is ${loggedInStudent}. I found your profile on EduConnect and would like to inquire about booking a class.`);
 
+  // FIXED: ADDED THE STUDENT PHONE TRACER HERE
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
-    const bookingData = { teacherName: teacher.name, studentName: loggedInStudent, date: selectedDate, time: selectedTime };
+    
+    // RETRIEVING THE ESSENTIAL PHONE TRACER TO PREVENT SCHEMA CRASHES
+    const loggedInStudentPhone = localStorage.getItem('userPhone') || "";
+
+    const bookingData = { 
+      teacherName: teacher.name, 
+      studentName: loggedInStudent, 
+      studentPhone: loggedInStudentPhone, // INJECTED PARAMETER
+      date: selectedDate, 
+      time: selectedTime 
+    };
+
     try {
-      // FIXED: Pointed booking submission to backend cloud service
       await axiosInstance.post('https://educonnect-backend-qmdv.onrender.com/api/bookings', bookingData);
       setBookingSuccess(true);
       setTimeout(() => { setIsBooking(false); setBookingSuccess(false); }, 3000);
     } catch (error) {
-      alert("Could not save booking.");
+      console.error(error);
+      alert("Booking save failed. Make sure student profile state has a valid session phone context.");
     }
   };
 
@@ -133,7 +141,6 @@ const TeacherProfile = () => {
         <h3 style={{ color: '#1e40af' }}>About Me</h3>
         <p style={{ lineHeight: '1.6', color: '#334155', whiteSpace: 'pre-wrap' }}>{teacher.bio || `I am a qualified mentor from ${teacher.location} specializing in ${teacher.degree}. I look forward to helping you succeed!`}</p>
 
-        {/* FIXED: Added flex-wrap for responsiveness on small screens */}
         <div style={{ marginTop: '30px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
           <button className="primary-btn" style={{ background: '#25D366', border: 'none' }} onClick={() => window.open(`https://wa.me/91${teacher.phone}?text=${whatsappMessage}`, '_blank')} disabled={teacher.name === "Profile Not Found"}>
             WhatsApp

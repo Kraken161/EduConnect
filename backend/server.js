@@ -1,20 +1,21 @@
-require('dotenv').config(); // 1. Unlocks the hidden .env variables
+require('dotenv').config(); 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-// Import Database Models (Explicitly lowercase paths to match Linux deployment standards)
+// Import Database Models
 const Booking = require('./models/Booking'); 
 const Teacher = require('./models/Teacher');
 const Student = require('./models/Student');
 
-// NEW MODEL DEFINITIONS (Declared inline to ensure single-file reliability)
+// NEW MODEL DEFINITIONS
 const chatSchema = new mongoose.Schema({
   teacherName: { type: String, required: true },
   isGroup: { type: Boolean, default: false },
-  subjectChannelName: { type: String, default: "" }, // e.g., "Mathematics Room"
+  subjectChannelName: { type: String, default: "" }, 
   studentPhone: { type: String, default: "" }, 
-  allowedMembers: [{ type: String }], // Whitelisted student phone numbers
+  studentName: { type: String, default: "Student" }, // FIXED: Added to schema to remember names
+  allowedMembers: [{ type: String }], 
   messages: [{
     sender: { type: String, required: true },
     text: { type: String, required: true },
@@ -31,72 +32,71 @@ const notificationSchema = new mongoose.Schema({
 }, { timestamps: true });
 const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
 
-
 const app = express();
 
-// Middleware Setup
 app.use(cors());
 app.use(express.json()); 
 
-// 2. Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("💻 MongoDB Connected Successfully"))
   .catch(err => console.log("❌ DB Connection Error:", err));
 
-// Quick health check home route
 app.get('/', (req, res) => {
     res.send("🚀 EduConnect Backend API is Live and Running!");
 });
 
 // ==========================================
-// BOOKING ROUTES
+// BOOKING & INTERACTIVE CHAT REQUEST ROUTES
 // ==========================================
 
-// 3. POST Route: Save a new booking + Fire initial Notification
 app.post('/api/bookings', async (req, res) => {
     try {
-        if (!req.body.teacherName || !req.body.date) {
-            return res.status(400).json({ error: "Missing required booking details" });
+        const { teacherName, studentName, studentPhone, date, time, status } = req.body;
+        if (!teacherName || !studentPhone) {
+            return res.status(400).json({ error: "Missing required details: teacherName and studentPhone are mandatory." });
         }
 
-        const newBooking = new Booking(req.body);
-        await newBooking.save(); 
-        console.log("New Booking Saved:", req.body);
+        const newBooking = new Booking({
+            teacherName,
+            studentName: studentName || "Guest Student",
+            studentPhone,
+            date,
+            time,
+            status: status || 'Pending'
+        });
 
-        // Alert Notification Loop
-        const teacher = await Teacher.findOne({ name: req.body.teacherName });
+        await newBooking.save(); 
+
+        const teacher = await Teacher.findOne({ name: teacherName });
         if (teacher) {
             const alert = new Notification({
                 recipientPhone: teacher.phone,
-                message: `🔔 New demo class requested by ${req.body.studentName || "A Student"}!`
+                message: date === "Chat Request Thread" 
+                  ? `✉️ ${studentName} sent you a private Chat Request! Accept it to open a text thread.`
+                  : `🔔 New demo class requested by ${studentName} on ${date}!`
             });
             await alert.save();
         }
 
-        res.status(201).json({ message: "Booking saved to database!", booking: newBooking });
+        res.status(201).json({ message: "Request saved successfully!", booking: newBooking });
     } catch (error) {
         console.error("Post Error:", error);
-        res.status(500).json({ error: "Failed to save booking" });
+        res.status(500).json({ error: "Failed to save request payload to database." });
     }
 });
 
-// 4. GET Route: Fetch all bookings for the Dashboard
 app.get('/api/bookings', async (req, res) => {
     try {
         const allBookings = await Booking.find().sort({ createdAt: -1 }); 
         res.status(200).json(allBookings);
     } catch (error) {
-        console.error("Get Error:", error);
         res.status(500).json({ error: "Could not fetch bookings" });
     }
 });
 
-// PATCH: Update Teacher (Edits, Views, and NEW: Dynamic Ratings Calculation)
 app.patch('/api/teachers/:id', async (req, res) => {
     try {
         let updatePayload = { ...req.body };
-
-        // DYNAMIC RATING STAR CALCULATOR
         if (req.body.reviews) {
             const reviewsArray = req.body.reviews;
             const averageStarResult = reviewsArray.length === 0 
@@ -105,49 +105,59 @@ app.patch('/api/teachers/:id', async (req, res) => {
             updatePayload.rating = Number(averageStarResult);
         }
 
-        const updatedTeacher = await Teacher.findByIdAndUpdate(
-            req.params.id, 
-            updatePayload, 
-            { new: true }
-        );
+        const updatedTeacher = await Teacher.findByIdAndUpdate(req.params.id, updatePayload, { new: true });
         res.json(updatedTeacher);
     } catch (err) {
         res.status(500).send("Error updating teacher data");
     }
 });
 
-// UPDATE Booking Status (Approve/Cancel) + Automatically Initialize Chat Context
 app.patch('/api/bookings/:id', async (req, res) => {
   try {
+    const { status, meetingLink, waitTime } = req.body; 
+
     const updatedBooking = await Booking.findByIdAndUpdate(
       req.params.id, 
-      { status: req.body.status }, 
+      { status, meetingLink, waitTime }, 
       { new: true }
     );
 
-    // If accepted, instantiate a private chat room for them instantly
-    if (req.body.status === 'Confirmed') {
+    if (status === 'Confirmed') {
         const teacher = await Teacher.findOne({ name: updatedBooking.teacherName });
-        const student = await Student.findOne({ name: updatedBooking.studentName });
+        
+        if (teacher && updatedBooking.studentPhone) {
+            
+            const existingChat = await Chat.findOne({ 
+                teacherName: teacher.name, 
+                studentPhone: updatedBooking.studentPhone,
+                isGroup: false 
+            });
 
-        if (teacher && student) {
-            // Check if chat space already exists
-            const existingChat = await Chat.findOne({ teacherName: teacher.name, studentPhone: student.phone });
             if (!existingChat) {
                 const autoChatRoom = new Chat({
                     teacherName: teacher.name,
-                    studentPhone: student.phone,
-                    allowedMembers: [teacher.phone, student.phone],
+                    studentPhone: updatedBooking.studentPhone,
+                    studentName: updatedBooking.studentName, // FIXED: Saves actual name to chat database
+                    allowedMembers: [teacher.phone, updatedBooking.studentPhone],
                     isGroup: false,
-                    messages: [{ sender: "System", text: "Class booking accepted! You can now chat and coordinate lessons here directly." }]
+                    messages: [{ 
+                        sender: "System", 
+                        text: `Connection accepted! 🤝\nDemo Class Link: ${meetingLink ? meetingLink : 'To be shared shortly.'}` 
+                    }]
                 });
                 await autoChatRoom.save();
             }
 
-            // Push notification entry to student's bell container
+            let notificationMsg = "";
+            if (waitTime === 0) {
+                notificationMsg = `🚀 Instructor ${teacher.name} accepted your demo request! Class starts NOW. Open your Class Chats to grab the Zoom link.`;
+            } else {
+                notificationMsg = `⏳ Instructor ${teacher.name} accepted your demo! Class will begin in ${waitTime} minutes. Check your Class Chats for the link!`;
+            }
+
             const alert = new Notification({
-                recipientPhone: student.phone,
-                message: `📅 Mentor ${teacher.name} has accepted your demo session request!`
+                recipientPhone: updatedBooking.studentPhone,
+                message: notificationMsg
             });
             await alert.save();
         }
@@ -155,26 +165,11 @@ app.patch('/api/bookings/:id', async (req, res) => {
 
     res.json(updatedBooking);
   } catch (err) {
-    res.status(500).send("Error updating status");
+    console.error("Booking Patch Error:", err);
+    res.status(500).send("Error updating booking status loops");
   }
 });
 
-// OLD BACKWARD COMPATIBLE ZOOM LINK PATHWAY (Kept so older frontend calls never fail)
-app.patch('/api/bookings/:id/zoom-link', async (req, res) => {
-  try {
-    const updatedBooking = await Booking.findByIdAndUpdate(
-      req.params.id,
-      { meetingLink: req.body.meetingLink },
-      { new: true }
-    );
-    if (!updatedBooking) return res.status(404).json({ error: "Booking not found" });
-    res.json(updatedBooking);
-  } catch (err) {
-    res.status(500).send("Error saving Zoom link");
-  }
-});
-
-// 6. DELETE a booking
 app.delete('/api/bookings/:id', async (req, res) => {
   try {
     await Booking.findByIdAndDelete(req.params.id);
@@ -185,10 +180,9 @@ app.delete('/api/bookings/:id', async (req, res) => {
 });
 
 // ==========================================
-// NEW FEATURES: CHAT PLATFORM API
+// CHAT PLATFORM CORE ROUTES
 // ==========================================
 
-// Get all chats linked to an active phone reference
 app.get('/api/chats/:phone', async (req, res) => {
     try {
         const chats = await Chat.find({
@@ -204,14 +198,13 @@ app.get('/api/chats/:phone', async (req, res) => {
     }
 });
 
-// Create subject channel group (Teacher managed configuration control)
 app.post('/api/chats/channels', async (req, res) => {
     try {
         const newChannel = new Chat({
-            teacherName: req.body.teacherName,
-            isGroup: true,
-            subjectChannelName: req.body.subjectChannelName,
-            allowedMembers: [req.body.teacherPhone] // starts with just the teacher
+          teacherName: req.body.teacherName,
+          isGroup: true,
+          subjectChannelName: req.body.subjectChannelName,
+          allowedMembers: [req.body.teacherPhone] 
         });
         await newChannel.save();
         res.status(201).json(newChannel);
@@ -220,13 +213,20 @@ app.post('/api/chats/channels', async (req, res) => {
     }
 });
 
-// Add unassigned student reference explicitly to a specific subject channel array
 app.patch('/api/chats/channels/:id/add-student', async (req, res) => {
     try {
         const { studentPhone } = req.body;
+        const channelRoom = await Chat.findById(req.params.id);
+        if (!channelRoom) return res.status(404).json({ error: "Channel room missing" });
+
+        const teacher = await Teacher.findOne({ name: channelRoom.teacherName });
+        if (!teacher || !teacher.myMentoredStudents.includes(studentPhone)) {
+            return res.status(403).json({ error: "Access Denied: This student must click 'Accept as Mentor' on their dashboard before you can add them to a subject channel group." });
+        }
+
         const updatedChannel = await Chat.findByIdAndUpdate(
             req.params.id,
-            { $addToSet: { allowedMembers: studentPhone } }, // addToSet ensures no duplicates
+            { $addToSet: { allowedMembers: studentPhone } }, 
             { new: true }
         );
         res.json(updatedChannel);
@@ -235,7 +235,20 @@ app.patch('/api/chats/channels/:id/add-student', async (req, res) => {
     }
 });
 
-// Post message into chat + Handle Important Pinned Messages alert system
+app.patch('/api/chats/channels/:id/leave', async (req, res) => {
+    try {
+        const { studentPhone } = req.body;
+        const updatedChannel = await Chat.findByIdAndUpdate(
+            req.params.id,
+            { $pull: { allowedMembers: studentPhone } }, 
+            { new: true }
+        );
+        res.json(updatedChannel);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/chats/:id/messages', async (req, res) => {
     try {
         const { sender, text, isPinned, targetMembers } = req.body;
@@ -245,10 +258,9 @@ app.post('/api/chats/:id/messages', async (req, res) => {
             { new: true }
         );
 
-        // If pinned text exists, distribute it to all member notification bells instantly
         if (isPinned && targetMembers) {
             const notifications = targetMembers
-                .filter(phone => phone !== req.body.senderPhone) // Don't notify the sender
+                .filter(phone => phone !== req.body.senderPhone) 
                 .map(phone => ({
                     recipientPhone: phone,
                     message: `📌 Pinned Update in ${chat.isGroup ? chat.subjectChannelName : "Private Chat"}: "${text}"`
@@ -263,7 +275,19 @@ app.post('/api/chats/:id/messages', async (req, res) => {
     }
 });
 
-// Delete message or subject channel completely
+app.delete('/api/chats/:chatId/messages/:msgId', async (req, res) => {
+    try {
+        const chat = await Chat.findByIdAndUpdate(
+            req.params.chatId,
+            { $pull: { messages: { _id: req.params.msgId } } },
+            { new: true }
+        );
+        res.json(chat);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/chats/channels/:id', async (req, res) => {
     try {
         await Chat.findByIdAndDelete(req.params.id);
@@ -274,7 +298,7 @@ app.delete('/api/chats/channels/:id', async (req, res) => {
 });
 
 // ==========================================
-// NEW FEATURES: NOTIFICATION SYSTEM API
+// NOTIFICATION BADGES ROUTES
 // ==========================================
 
 app.get('/api/notifications/:phone', async (req, res) => {
@@ -296,25 +320,9 @@ app.patch('/api/notifications/clear/:phone', async (req, res) => {
 });
 
 // ==========================================
-// STUDENT ROUTES
+// AUTHENTICATION & SETTINGS PROFILES LINKING
 // ==========================================
 
-const handleStudentSignup = async (req, res) => {
-    try {
-        const newStudent = new Student(req.body);
-        await newStudent.save();
-        console.log("New Student Registered:", req.body.name);
-        res.status(201).json({ message: "Student registered successfully!" });
-    } catch (error) {
-        console.error("Error registering student:", error);
-        res.status(500).json({ error: "Failed to register student" });
-    }
-};
-
-app.post('/api/students', handleStudentSignup);
-app.post('/api/students/signup', handleStudentSignup); 
-
-// NEW SETTINGS UPDATE: Change City/Town or Password safely with Confirmation Checks
 app.patch('/api/students/update-profile/:phone', async (req, res) => {
     try {
         const { password, location } = req.body;
@@ -325,123 +333,86 @@ app.patch('/api/students/update-profile/:phone', async (req, res) => {
         const updatedStudent = await Student.findOneAndUpdate({ phone: req.params.phone }, updateFields, { new: true });
         res.json(updatedStudent);
     } catch (err) {
-        res.status(500).send("Error updating student profiles settings.");
+        res.status(500).send("Error updating settings profile parameters.");
     }
 });
 
-// DELETE Student Account Permanently
 app.delete('/api/students/delete-account/:phone', async (req, res) => {
   try {
     await Student.findOneAndDelete({ phone: req.params.phone });
-    res.json({ message: "Student profile dropped successfully" });
+    res.json({ message: "Student account removed safely" });
   } catch (error) {
-    res.status(500).json({ error: "Error dropping student profile" });
+    res.status(500).json({ error: "Failed to erase account trace." });
   }
 });
 
-// ==========================================
-// TEACHER ROUTES
-// ==========================================
-
-const handleTeacherSignup = async (req, res) => {
-    try {
-        const newTeacher = new Teacher(req.body);
-        await newTeacher.save();
-        console.log("New Teacher Registered:", req.body.name);
-        res.status(201).json({ message: "Teacher registered successfully!" });
-    } catch (error) {
-        console.error("Error registering teacher:", error);
-        res.status(500).json({ error: "Failed to register teacher" });
-    }
-};
-
-app.post('/api/teachers', handleTeacherSignup);
-app.post('/api/teachers/signup', handleTeacherSignup); 
-
-// GET: Fetch all teachers
-app.get('/api/teachers', async (req, res) => {
-    try {
-        const allTeachers = await Teacher.find().sort({ createdAt: -1 });
-        res.status(200).json(allTeachers);
-    } catch (error) {
-        console.error("Error fetching teachers:", error);
-        res.status(500).json({ error: "Could not fetch teachers" });
-    }
-});
-
-// NEW SETTINGS UPDATE: Manage status loop, change city parameters, or change passwords securely
 app.patch('/api/teachers/update-profile/:id', async (req, res) => {
     try {
         const updatedTeacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(updatedTeacher);
     } catch (err) {
-        res.status(500).send("Error processing profile settings modifications.");
+        res.status(500).send("Profile patch transaction error.");
     }
 });
 
-// ACCEPT AS MENTOR ROUTE: Formally binds a student identifier to a teacher's roster link collection array
-app.patch('/api/teachers/:id/accept-mentor', async (req, res) => {
+app.patch('/api/teachers/accept-mentor-status', async (req, res) => {
     try {
-        const { studentPhone, studentName } = req.body;
-        const teacher = await Teacher.findByIdAndUpdate(
-            req.params.id,
-            { $addToSet: { myMentoredStudents: studentPhone } },
+        const { studentPhone, studentName, teacherName } = req.body;
+        
+        if (!studentPhone || !teacherName) {
+            return res.status(400).json({ error: "Missing required data for binding." });
+        }
+
+        const cleanTeacherName = teacherName.trim(); 
+        
+        const teacher = await Teacher.findOneAndUpdate(
+            { name: cleanTeacherName },
+            { $addToSet: { myMentoredStudents: studentPhone } }, 
             { new: true }
         );
 
-        // Fire metric alert straight to teacher notification list
+        if (!teacher) {
+            return res.status(404).json({ error: `Teacher '${cleanTeacherName}' not found.` });
+        }
+
         const alert = new Notification({
             recipientPhone: teacher.phone,
-            message: `🎓 Great news! ${studentName} has officially selected you as their formal long-term Mentor!`
+            message: `🎓 Great news! ${studentName} accepted you as their long-term Mentor. You can now add them to your Subject Channel rooms.`
         });
         await alert.save();
 
-        res.json(teacher);
+        res.json({ message: "Mentor binding complete", teacher });
     } catch (err) {
-        res.status(500).send("Error saving mentor configuration mappings.");
+        console.error("Binding Error:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// DELETE Teacher Account Permanently
 app.delete('/api/teachers/delete-account/:id', async (req, res) => {
   try {
     await Teacher.findByIdAndDelete(req.params.id);
-    res.json({ message: "Teacher profile dropped successfully" });
+    res.json({ message: "Teacher account removed safely" });
   } catch (error) {
-    res.status(500).json({ error: "Error dropping teacher profile" });
+    res.status(500).json({ error: "Failed to erase account trace." });
   }
 });
-
-// ==========================================
-// UNIVERSAL LOGIN ROUTE
-// ==========================================
 
 app.post('/api/login', async (req, res) => {
     try {
         const { phone, password, role } = req.body;
         let user;
-
-        if (role === 'teacher') {
-            user = await Teacher.findOne({ phone: phone, password: password });
-        } else if (role === 'student') {
-            user = await Student.findOne({ phone: phone, password: password });
-        }
+        if (role === 'teacher') user = await Teacher.findOne({ phone, password });
+        else user = await Student.findOne({ phone, password });
 
         if (user) {
-            // FIXED: Now safely passes back the user's phone along with their name to coordinate messaging tracking maps
             res.status(200).json({ message: "Login success", name: user.name, phone: user.phone });
         } else {
             res.status(401).json({ error: "Invalid credentials" });
         }
     } catch (error) {
-        console.error("Login Error:", error);
         res.status(500).json({ error: "Server error during login" });
     }
 });
-
-// ==========================================
-// SERVER START
-// ==========================================
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

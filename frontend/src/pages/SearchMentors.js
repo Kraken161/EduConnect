@@ -50,7 +50,6 @@ const SearchMentors = () => {
   const currentTeachersPageSlice = filteredTeachers.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredTeachers.length / itemsPerPage);
 
-  // Reset page position index to 1 instantly when a user types a new search query
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
@@ -66,39 +65,28 @@ const SearchMentors = () => {
     setCurrentPage(1);
   };
 
-  // INTERACTIVE REAL-TIME CHAT REQUEST INITIATOR (Replaces WhatsApp completely)
+  // CORRECTED HANDLER: Sends a pending invitation log request rather than creating a duplicate chat room instantly
   const handleInitiateChatRequest = async (teacher) => {
     if (!loggedInStudentPhone) {
-      alert("⚠️ Error: Student session identifier missing. Please log out and sign back in.");
+      alert("⚠️ Error: Student identity session is missing. Please log out and sign back in.");
       return;
     }
 
     try {
-      const chatPayload = {
+      // Injects a specialized allocation packet into the bookings engine collection schema
+      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/bookings', {
         teacherName: teacher.name,
+        studentName: loggedInStudentName,
         studentPhone: loggedInStudentPhone,
-        allowedMembers: [teacher.phone, loggedInStudentPhone],
-        isGroup: false,
-        messages: [{
-          sender: "System",
-          text: `👋 Chat request initialized by ${loggedInStudentName}. You can now converse and discuss tutorial paths here.`
-        }]
-      };
+        date: "Chat Request Thread",
+        time: "Real-time Inbox Invitation",
+        status: "Pending"
+      });
 
-      // Calls our newly introduced server.js single-file chat router node
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/chats/create', chatPayload);
-      
-      // Instantly generate a system log notice to trigger the teacher's notification bell container
-      const notificationPayload = {
-        recipientPhone: teacher.phone,
-        message: `💬 ${loggedInStudentName} has initiated a real-time private chat request with you!`
-      };
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/notifications', notificationPayload);
-
-      alert(`🎉 Chat workspace with Mentor ${teacher.name} initialized successfully! Navigate to Class Chats in your sidebar menu to message them.`);
+      alert(`🎉 Invitation delivered successfully to Instructor ${teacher.name}! A secure 1-on-1 private chat channel will open automatically the moment they accept your request on their dashboard.`);
     } catch (err) {
       console.error(err);
-      alert("This chat channel workspace is already active or server execution failed.");
+      alert("Failed to submit chat invitation parameter stack to backend.");
     }
   };
 
@@ -121,7 +109,7 @@ const SearchMentors = () => {
         </div>
       </aside>
 
-      {/* CORE CANVAS AREA AREA */}
+      {/* CORE CANVAS DISPLAY WORKSPACE */}
       <main className="dashboard-main-content">
         <header style={{ marginBottom: '32px', textAlign: 'left' }}>
           <h2>Find Your Mentor</h2>
@@ -138,14 +126,14 @@ const SearchMentors = () => {
             style={{ flex: 2, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
           />
           
-          <select value={selectedSubject} onChange={handleSubjectChange} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+          <select value={selectedSubject} onChange={handleSubjectChange} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}>
             <option value="All">Filter by Subject (All)</option>
             {allAvailableSubjects.filter(s => s !== "All").map(sub => (
               <option key={sub} value={sub}>{sub}</option>
             ))}
           </select>
 
-          <select value={selectedCity} onChange={handleCityChange} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+          <select value={selectedCity} onChange={handleCityChange} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}>
             <option value="All">Filter by City (All)</option>
             {locations.filter(c => c !== "All").map(city => (
               <option key={city} value={city}>{city}</option>
@@ -153,7 +141,7 @@ const SearchMentors = () => {
           </select>
         </section>
 
-        {/* RE-ARRANGED 5-CARD TRACK OVERLAP DEFENSIVE SPACE */}
+        {/* RE-ARRANGED 5-CARD TRACK RE-GRID AREA */}
         <section className="mentor-search-cards-grid">
           {isLoading ? (
             <p style={{ textAlign: 'center', color: '#64748b' }}>Syncing mentor database entries...</p>
@@ -161,11 +149,10 @@ const SearchMentors = () => {
             <p style={{ textAlign: 'center', color: '#ef4444', fontWeight: '500' }}>No teachers match your search query filters in this territory layer.</p>
           ) : (
             currentTeachersPageSlice.map(teacher => (
-              <div key={teacher._id} className="glass-card" style={{ margin: '0', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', textAlign: 'left', maxWidth: '100%' }}>
+              <div key={teacher._id} className="glass-card" style={{ margin: '0', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', textAlign: 'left', maxWidth: '100%', boxId: 'cards-container' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <h4 style={{ margin: 0, color: '#1e40af', fontSize: '1.2rem', fontWeight: '700' }}>{teacher.name}</h4>
-                    {/* DYNAMIC CALCULATED AVERAGE RATING STAR COMPONENT DISPLAY */}
                     <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: '700' }}>
                       ★ {teacher.rating ? Number(teacher.rating).toFixed(1) : "5.0"} Rating
                     </span>
@@ -175,7 +162,7 @@ const SearchMentors = () => {
                     <strong>Specialization Path:</strong> {teacher.subjects && teacher.subjects.length > 0 ? teacher.subjects.join(", ") : "General Matrix"}
                   </p>
                   <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>
-                    🎓 {teacher.degree.toUpperCase()} • 📍 District Zone: {teacher.location} • {teacher.teachingLevel || "General Core"}
+                    🎓 {teacher.degree ? teacher.degree.toUpperCase() : 'DEGREE'} • 📍 District Zone: {teacher.location} • {teacher.teachingLevel || "General Core"}
                   </p>
                 </div>
 
@@ -183,13 +170,14 @@ const SearchMentors = () => {
                   <button 
                     onClick={() => handleInitiateChatRequest(teacher)}
                     className="primary-btn" 
-                    style={{ backgroundColor: '#10b981' }}
+                    style={{ backgroundColor: '#10b981', padding: '10px 20px', borderRadius: '8px', fontSize: '0.9rem' }}
                   >
                     💬 Chat Request
                   </button>
                   <button 
                     onClick={() => navigate(`/profile/${teacher._id}`)} 
                     className="primary-btn"
+                    style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '0.9rem' }}
                   >
                     View Profile
                   </button>
@@ -199,7 +187,7 @@ const SearchMentors = () => {
           )}
         </section>
 
-        {/* 5-ITEM CONTROL PAGINATION INTERFACE TRACK ROW */}
+        {/* 5-ITEM CONTROL PAGINATION ROW TRACK */}
         {totalPages > 1 && (
           <div className="pagination-controls-row">
             <button 

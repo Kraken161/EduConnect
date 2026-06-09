@@ -45,7 +45,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="premium-dashboard-wrapper">
-      
+
       {/* COMPACT STICKY LEFT SIDEBAR NAVIGATION RAIL */}
       <aside className="pinterest-sidebar">
         <div>
@@ -61,7 +61,7 @@ const StudentDashboard = () => {
 
       {/* RIGHT DISPLAY CANVASES CONTENT REGION */}
       <main className="dashboard-main-content">
-        
+
         {/* Horizontal Top Header Bar Grid */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <div>
@@ -99,10 +99,10 @@ const StudentDashboard = () => {
 
         {/* LOWER SPLIT AREA DATA VIEW PANELS */}
         <div className="lower-dashboard-split-grid" style={{ gridTemplateColumns: '1fr' }}>
-          
+
           <section className="broad-table-panel">
             <h3 style={{ margin: '0 0 20px 0', color: '#0f172a' }}>My Demo Classes</h3>
-            
+
             {isLoading ? (
               <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Syncing appointments calendar data tracks...</p>
             ) : myBookings.length === 0 ? (
@@ -120,13 +120,57 @@ const StudentDashboard = () => {
 
                     <div>
                       {booking.status === 'Confirmed' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                           <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                            Approved
+                            ✅ Request Accepted
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: '600', fontStyle: 'italic' }}>
-                            💬 Check Class Chats for live Zoom connections
-                          </span>
+
+                          {/* --- PHASE 3 DYNAMIC UI: Wait Time Display --- */}
+                          {booking.waitTime === 0 ? (
+                            <span style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 'bold' }}>
+                              🚀 Class starts NOW. Link sent to Class Chats!
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: '#d97706', fontWeight: 'bold' }}>
+                              ⏳ Class begins in {booking.waitTime} mins. Link sent to Class Chats!
+                            </span>
+                          )}
+
+                          {/* Action Buttons Row */}
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                            
+                            {/* New Shortcut to Chats */}
+                            <button 
+                              onClick={() => navigate('/student-chats')} 
+                              style={{ backgroundColor: '#1e40af', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                              💬 Go to Chats
+                            </button>
+
+                            {/* Existing Fixed Mentor Binding Button */}
+                            <button
+                              onClick={async () => {
+                                if (!loggedInStudentPhone) {
+                                  alert("Session error: Phone number is missing. Please log out and log back in.");
+                                  return;
+                                }
+                                try {
+                                  await axios.patch('https://educonnect-backend-qmdv.onrender.com/api/teachers/accept-mentor-status', {
+                                    studentPhone: loggedInStudentPhone,
+                                    studentName: loggedInStudent,
+                                    teacherName: booking.teacherName
+                                  });
+                                  alert("Success! You are now bound to this mentor.");
+                                  window.location.reload();
+                                } catch (err) {
+                                  alert("Binding Error: " + (err.response?.data?.error || "Server connection failed"));
+                                }
+                              }}
+                              style={{ backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                              🤝 Accept as My Mentor
+                            </button>
+                          </div>
                         </div>
                       ) : booking.status === 'Cancelled' ? (
                         <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' }}>

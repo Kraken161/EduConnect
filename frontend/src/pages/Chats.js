@@ -8,18 +8,25 @@ const Chats = () => {
   const loggedInUserName = localStorage.getItem('userName') || '';
   const loggedInUserPhone = localStorage.getItem('userPhone') || '';
 
-  // Data Stream Pipelines
   const [chatRooms, setChatRooms] = useState([]);
   const [activeRoom, setActiveRoom] = useState(null);
   const [typedMessage, setTypedMessage] = useState("");
   const [newChannelName, setNewChannelName] = useState("");
+  const [selectedGroupToAssign, setSelectedGroupToAssign] = useState("");
+  
+  // FIXED: Two separate context menus for Messages and Headers
+  const [msgContextMenu, setMsgContextMenu] = useState({ visible: false, x: 0, y: 0, msgId: null });
+  const [headerContextMenu, setHeaderContextMenu] = useState({ visible: false, x: 0, y: 0 });
+  
+  const [toast, setToast] = useState("");
 
-  // Target assignment maps for Channel Whitelists (Only visible to teachers)
-  const [studentToWhitelist, setStudentToWhitelist] = useState("");
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 4000);
+  };
 
   const messagesEndRef = useRef(null);
 
-  // Sync available text threads from database cluster
   const fetchChatRosters = async () => {
     try {
       const response = await axios.get(
@@ -29,7 +36,6 @@ const Chats = () => {
       if (response.data.length > 0 && !activeRoom) {
         setActiveRoom(response.data[0]);
       } else if (activeRoom) {
-        // Maintain focus on the currently selected active room to see updates
         const refreshedRoom = response.data.find(r => r._id === activeRoom._id);
         if (refreshedRoom) setActiveRoom(refreshedRoom);
       }
@@ -40,16 +46,40 @@ const Chats = () => {
 
   useEffect(() => {
     fetchChatRosters();
-    const livePollingInterval = setInterval(fetchChatRosters, 4000); // Polls every 4 seconds for new messages
+    const livePollingInterval = setInterval(fetchChatRosters, 4000); 
     return () => clearInterval(livePollingInterval);
-  }, [activeRoom]);
+  }, [activeRoom?._id]);
 
   useEffect(() => {
-    // Smooth scroll down to the absolute latest text message inside the canvas view
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeRoom?.messages]);
+  }, [activeRoom?.messages?.length]);
 
-  // SEND MESSAGE HANDLER
+  // FIXED: Closes both menus when clicking away anywhere
+  useEffect(() => {
+    const closeMenus = () => {
+      setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null });
+      setHeaderContextMenu({ visible: false, x: 0, y: 0 });
+    };
+    window.addEventListener('click', closeMenus);
+    return () => window.removeEventListener('click', closeMenus);
+  }, []);
+
+  // --- CONTEXT MENU TRIGGERS ---
+  const handleMsgRightClick = (e, msg) => {
+    if (msg.sender !== loggedInUserName) return; 
+    e.preventDefault(); 
+    setMsgContextMenu({ visible: true, x: e.clientX, y: e.clientY, msgId: msg._id });
+    setHeaderContextMenu({ visible: false, x: 0, y: 0 }); // Close the other menu if open
+  };
+
+  const handleHeaderRightClick = (e) => {
+    if (userRole !== 'student' || !activeRoom?.isGroup) return; 
+    e.preventDefault();
+    setHeaderContextMenu({ visible: true, x: e.clientX, y: e.clientY });
+    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null }); // Close the other menu if open
+  };
+
+  // --- CORE FUNCTIONS ---
   const handleSendMessage = async (e, pinStatus = false) => {
     if (e) e.preventDefault();
     if (!typedMessage.trim() || !activeRoom) return;
@@ -60,22 +90,39 @@ const Chats = () => {
         senderPhone: loggedInUserPhone,
         text: typedMessage.trim(),
         isPinned: pinStatus,
-        targetMembers: activeRoom.allowedMembers // Target roster for alerts distribution
+        targetMembers: activeRoom.allowedMembers 
       };
 
       await axios.post(
-        `https://educonnect-backend-qmdv.onrender.com/api/chats/${activeRoom._id}/messages`, 
+        `https://educonnect-backend-qmdv.onrender.com/api/chats/${activeRoom._id}/messages`,
         messagePayload
       );
-      
+
       setTypedMessage("");
       fetchChatRosters();
     } catch (err) {
-      alert("Transmission failure.");
+      showToast("❌ Transmission failure.");
     }
   };
 
-  // CREATE GROUP SUBJECT CHANNEL (Teacher Control only)
+  // FIXED: Hard-bound ID processing to guarantee deletion
+  const handleDeleteMessage = async (targetMsgId) => {
+    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null }); 
+
+    if (!targetMsgId) {
+      return showToast("❌ Error: Message ID missing.");
+    }
+
+    try {
+      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/${activeRoom._id}/messages/${targetMsgId}`);
+      showToast("🗑️ Message deleted.");
+      fetchChatRosters();
+    } catch (err) {
+      showToast("❌ Failed to delete message.");
+      console.error("Delete Error Logs:", err);
+    }
+  };
+
   const handleCreateSubjectChannel = async (e) => {
     e.preventDefault();
     if (!newChannelName.trim()) return;
@@ -88,45 +135,123 @@ const Chats = () => {
       };
       await axios.post('https://educonnect-backend-qmdv.onrender.com/api/chats/channels', payload);
       setNewChannelName("");
-      alert("📚 New subject channel room created successfully!");
+      showToast("📚 New class group created successfully!");
       fetchChatRosters();
     } catch (err) {
-      alert("Failed to build channel path.");
+      showToast("❌ Failed to build channel path.");
     }
   };
 
-  // ADD MENTORED STUDENT TO SUBJECT CHANNEL WHITELIST (Teacher Control only)
-  const handleAddStudentToChannel = async (e) => {
-    e.preventDefault();
-    if (!studentToWhitelist.trim() || !activeRoom || !activeRoom.isGroup) return;
+  const handleQuickAssignToClass = async () => {
+    if (!selectedGroupToAssign || !activeRoom || activeRoom.isGroup) return;
 
     try {
       await axios.patch(
-        `https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${activeRoom._id}/add-student`,
-        { studentPhone: studentToWhitelist.trim() }
+        `https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${selectedGroupToAssign}/add-student`,
+        { studentPhone: activeRoom.studentPhone }
       );
-      
-      // Fire confirmation alert into notification bell database
+
       await axios.post('https://educonnect-backend-qmdv.onrender.com/api/notifications', {
-        recipientPhone: studentToWhitelist.trim(),
-        message: `📚 You have been explicitly whitelisted and added to Mentor ${loggedInUserName}'s "${activeRoom.subjectChannelName}" Group Channel!`
+        recipientPhone: activeRoom.studentPhone,
+        message: `📚 You have been explicitly whitelisted and added to a Class Group Channel by Mentor ${loggedInUserName}!`
       });
 
-      alert("Student whitelisted into subject channel roster successfully!");
-      setStudentToWhitelist("");
+      showToast("✅ Student instantly assigned to the class!");
+      setSelectedGroupToAssign("");
       fetchChatRosters();
     } catch (err) {
-      alert("Failed to bind student to channel tracking array.");
+      const backendErrorMessage = err.response?.data?.error || "Failed to bind student.";
+      showToast(`⚠️ Assignment Intercepted: ${backendErrorMessage}`);
     }
   };
 
-  // Find the currently pinned message if it exists in the active room
+  // FIXED: Hard-bound ID processing for leaving a class
+  const handleLeaveClass = async () => {
+    setHeaderContextMenu({ visible: false, x: 0, y: 0 }); 
+    
+    if (!window.confirm(`Are you sure you want to leave the ${activeRoom.subjectChannelName} class room?`)) return;
+    
+    try {
+      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${activeRoom._id}/leave`, {
+        studentPhone: loggedInUserPhone
+      });
+      showToast("👋 You have successfully left the class.");
+      setActiveRoom(null); 
+      fetchChatRosters(); 
+    } catch (err) {
+      showToast("❌ Failed to leave class.");
+      console.error("Leave Class Logs:", err);
+    }
+  };
+
+  const getStudentDisplayName = (room) => {
+    if (room.studentName && room.studentName !== "Student" && room.studentName !== "Guest Student") {
+      return room.studentName;
+    }
+    return room.studentPhone;
+  };
+
   const pinnedMessage = activeRoom?.messages?.find(m => m.isPinned);
+  const groupChannels = chatRooms.filter(r => r.isGroup);
+  const directChats = chatRooms.filter(r => !r.isGroup);
 
   return (
-    <div className="premium-dashboard-wrapper">
-      
-      {/* COMPACT PINTEREST LEFT NAVIGATION RAIL */}
+    <div className="premium-dashboard-wrapper" style={{ position: 'relative' }}>
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '30px', right: '30px', background: '#1e293b', color: 'white', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 9999, fontWeight: 'bold', animation: 'slideDown 0.3s ease-out' }}>
+          {toast}
+        </div>
+      )}
+
+      {/* 1. MESSAGE DELETE CONTEXT MENU */}
+      {msgContextMenu.visible && (
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          onMouseDown={(e) => e.stopPropagation()} 
+          style={{ 
+            position: 'fixed', top: msgContextMenu.y, left: msgContextMenu.x, 
+            backgroundColor: '#ffffff', 
+            border: '1px solid #cbd5e1', 
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
+            borderRadius: '8px', zIndex: 999999, padding: '4px', minWidth: '150px' 
+          }}
+        >
+          <button 
+            onClick={() => handleDeleteMessage(msgContextMenu.msgId)} 
+            style={{ width: '100%', padding: '10px 16px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '4px' }}
+            onMouseOver={(e) => e.target.style.background = '#fee2e2'}
+            onMouseOut={(e) => e.target.style.background = 'transparent'}
+          >
+            🗑️ Delete Message
+          </button>
+        </div>
+      )}
+
+      {/* 2. LEAVE CLASS CONTEXT MENU (Triggered by right-clicking the Group Header) */}
+      {headerContextMenu.visible && (
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          onMouseDown={(e) => e.stopPropagation()} 
+          style={{ 
+            position: 'fixed', top: headerContextMenu.y, left: headerContextMenu.x, 
+            backgroundColor: '#ffffff', 
+            border: '1px solid #cbd5e1', 
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
+            borderRadius: '8px', zIndex: 999999, padding: '4px', minWidth: '150px' 
+          }}
+        >
+          <button 
+            onClick={handleLeaveClass} 
+            style={{ width: '100%', padding: '10px 16px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '4px' }}
+            onMouseOver={(e) => e.target.style.background = '#fee2e2'}
+            onMouseOut={(e) => e.target.style.background = 'transparent'}
+          >
+            🚪 Leave Class
+          </button>
+        </div>
+      )}
+
       <aside className="pinterest-sidebar">
         <div>
           <div className="sidebar-brand-title">EduConnect</div>
@@ -139,78 +264,113 @@ const Chats = () => {
         </div>
       </aside>
 
-      {/* RE-ARRANGED WORKSPACE CONTAINER CANVAS */}
       <main className="dashboard-main-content">
         <header style={{ marginBottom: '24px', textAlign: 'left' }}>
           <h2>Class Chats Hub</h2>
-          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Coordinate lessons, retrieve direct Zoom links, and manage group subject channels.</p>
+          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Right-click (or long-press on mobile) your messages to delete them, or Class Names to leave.</p>
         </header>
 
         <div className="chat-workspace-container">
-          
-          {/* LEFT SIDE CHANNELS AND ACTIVE USER THREAD RAIL TRACK */}
-          <section className="chat-channels-sidebar-rail">
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', textAlign: 'left' }}>Active Rooms</h4>
+
+          <section className="chat-channels-sidebar-rail" style={{ display: 'flex', flexDirection: 'column' }}>
+            
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              {chatRooms.map(room => (
-                <button 
-                  key={room._id}
-                  className={`channel-list-item-btn ${activeRoom?._id === room._id ? 'active' : ''}`}
-                  onClick={() => setActiveRoom(room)}
-                >
-                  {room.isGroup ? `📚 ${room.subjectChannelName}` : `👤 Thread: ${room.teacherName}`}
-                </button>
-              ))}
-              {chatRooms.length === 0 && <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'left' }}>No message channels active yet.</p>}
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📚 My Classes</h4>
+              <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {groupChannels.map(room => (
+                  <button
+                    key={room._id}
+                    className={`channel-list-item-btn ${activeRoom?._id === room._id ? 'active' : ''}`}
+                    onClick={() => setActiveRoom(room)}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px' }}
+                  >
+                    <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{room.subjectChannelName}</span>
+                    <span style={{ fontSize: '0.65rem', color: activeRoom?._id === room._id ? '#e2e8f0' : '#64748b', marginTop: '2px' }}>
+                      Mentor: {room.teacherName}
+                    </span>
+                  </button>
+                ))}
+                {groupChannels.length === 0 && <p style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>No classes joined.</p>}
+              </div>
+
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>👤 Direct Chats</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {directChats.map(room => (
+                  <button
+                    key={room._id}
+                    className={`channel-list-item-btn ${activeRoom?._id === room._id ? 'active' : ''}`}
+                    onClick={() => setActiveRoom(room)}
+                  >
+                    {userRole === 'teacher' ? `Student: ${getStudentDisplayName(room)}` : `Mentor: ${room.teacherName}`}
+                  </button>
+                ))}
+                {directChats.length === 0 && <p style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>No direct chats active.</p>}
+              </div>
             </div>
 
-            {/* TEACHER ONLY UTILITIES PANEL TRACK (Channel builders) */}
             {userRole === 'teacher' && (
-              <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: '12px', marginTop: '12px' }}>
+              <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: '16px', marginTop: 'auto' }}>
                 <form onSubmit={handleCreateSubjectChannel}>
-                  <input 
-                    type="text" 
-                    placeholder="New Subject Channel..." 
+                  <input
+                    type="text"
+                    placeholder="Create New Class..."
                     value={newChannelName}
                     onChange={(e) => setNewChannelName(e.target.value)}
-                    style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '4px', marginBottom: '6px' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '0.8rem', borderRadius: '4px', marginBottom: '8px', border: '1px solid #cbd5e1' }}
                   />
-                  <button type="submit" className="primary-btn" style={{ width: '100%', padding: '6px', fontSize: '0.8rem' }}>
-                    + Add Channel
+                  <button type="submit" className="primary-btn" style={{ width: '100%', padding: '8px', fontSize: '0.8rem', backgroundColor: '#1e40af' }}>
+                    + Add Class Group
                   </button>
                 </form>
               </div>
             )}
           </section>
 
-          {/* RIGHT SIDE DESK ARENA CANVAS WINDOW */}
           <section className="messaging-desk-canvas">
             {activeRoom ? (
               <>
-                {/* ACTIVE ROOM SUBHEADER CONTROL BAR */}
-                <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h4 style={{ margin: 0, color: '#1e40af' }}>
-                    {activeRoom.isGroup ? `Group Room: ${activeRoom.subjectChannelName}` : `Private Workspace: ${activeRoom.teacherName}`}
-                  </h4>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  
+                  {/* OVERHAULED HEADER: Right-click this header to open the Leave Class menu */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <h4 
+                      onContextMenu={handleHeaderRightClick}
+                      style={{ 
+                        margin: 0, 
+                        color: '#1e40af', 
+                        cursor: (userRole === 'student' && activeRoom.isGroup) ? 'context-menu' : 'default' 
+                      }}
+                      title={(userRole === 'student' && activeRoom.isGroup) ? "Right-click to leave class" : ""}
+                    >
+                      {activeRoom.isGroup ? `Group Room: ${activeRoom.subjectChannelName}` : `Private Workspace: ${userRole === 'teacher' ? getStudentDisplayName(activeRoom) : activeRoom.teacherName}`}
+                    </h4>
+                  </div>
 
-                  {/* TEACHER ONLY WHITELIST INJECT FORM */}
-                  {userRole === 'teacher' && activeRoom.isGroup && (
-                    <form onSubmit={handleAddStudentToChannel} style={{ display: 'flex', gap: '6px', margin: 0 }}>
-                      <input 
-                        type="tel" 
-                        placeholder="Student Phone..." 
-                        value={studentToWhitelist}
-                        onChange={(e) => setStudentToWhitelist(e.target.value)}
-                        style={{ padding: '4px 8px', fontSize: '0.78rem', width: '130px', borderRadius: '4px', margin: 0 }}
-                      />
-                      <button type="submit" style={{ backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                        + Add Student
+                  {/* OVERHAULED ASSIGNMENT UI: Fused together perfectly with Theme Blue */}
+                  {userRole === 'teacher' && !activeRoom.isGroup && (
+                    <div style={{ display: 'flex', alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1e40af' }}>
+                      <select 
+                        value={selectedGroupToAssign}
+                        onChange={(e) => setSelectedGroupToAssign(e.target.value)}
+                        style={{ padding: '8px 12px', fontSize: '0.85rem', border: 'none', backgroundColor: '#eff6ff', color: '#1e40af', fontWeight: '600', outline: 'none', cursor: 'pointer', borderRight: '1px solid #1e40af' }}
+                      >
+                        <option value="">-- Select Class --</option>
+                        {groupChannels.map(gc => (
+                          <option key={gc._id} value={gc._id}>{gc.subjectChannelName}</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={handleQuickAssignToClass} 
+                        style={{ backgroundColor: '#1e40af', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                        onMouseOver={(e) => e.target.style.backgroundColor = '#1e3a8a'}
+                        onMouseOut={(e) => e.target.style.backgroundColor = '#1e40af'}
+                      >
+                        + Assign
                       </button>
-                    </form>
+                    </div>
                   )}
                 </div>
 
-                {/* THE SYSTEM DYNAMIC PINNED TEXT ANNOUNCEMENT BANNER */}
                 {pinnedMessage && (
                   <div className="pinned-announcement-header-banner">
                     <div>
@@ -220,49 +380,52 @@ const Chats = () => {
                   </div>
                 )}
 
-                {/* MESSAGES LOG BUBBLES CONTAINER TRACK */}
                 <div className="messages-scroller-window">
                   {activeRoom.messages?.map((msg, idx) => (
                     <div 
-                      key={idx} 
-                      className={`individual-chat-bubble ${msg.sender === loggedInUserName ? 'outgoing' : 'incoming'}`}
+                      key={msg._id || idx} 
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === loggedInUserName ? 'flex-end' : 'flex-start', marginBottom: '10px' }}
                     >
-                      <div style={{ fontSize: '0.72rem', fontWeight: 'bold', opacity: 0.8, marginBottom: '2px' }}>
-                        {msg.sender}
+                      <div 
+                        onContextMenu={(e) => handleMsgRightClick(e, msg)}
+                        className={`individual-chat-bubble ${msg.sender === loggedInUserName ? 'outgoing' : 'incoming'}`}
+                        style={{ cursor: msg.sender === loggedInUserName ? 'context-menu' : 'default' }}
+                        title={msg.sender === loggedInUserName ? "Right-click to delete" : ""}
+                      >
+                        <div style={{ fontSize: '0.72rem', fontWeight: 'bold', opacity: 0.8, marginBottom: '2px' }}>
+                          {msg.sender}
+                        </div>
+
+                        {msg.text.includes('zoom.us') || msg.text.includes('http') ? (
+                          <a href={msg.text} target="_blank" rel="noreferrer" style={{ color: msg.sender === loggedInUserName ? '#ffffff' : '#2563eb', fontWeight: 'bold', textDecoration: 'underline' }}>
+                            🔗 Click Here to Join Live Class Meeting
+                          </a>
+                        ) : (
+                          <div>{msg.text}</div>
+                        )}
                       </div>
-                      
-                      {/* Detects and converts any Zoom URL string cleanly into clickable live links */}
-                      {msg.text.includes('zoom.us') || msg.text.includes('http') ? (
-                        <a href={msg.text} target="_blank" rel="noreferrer" style={{ color: msg.sender === loggedInUserName ? '#ffffff' : '#2563eb', fontWeight: 'bold', textDecoration: 'underline' }}>
-                          🔗 Click Here to Join Live Class Meeting
-                        </a>
-                      ) : (
-                        <div>{msg.text}</div>
-                      )}
                     </div>
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* INTERACTIVE COMPOSER CHAT FOOTER INPUT TRAY */}
                 <form onSubmit={(e) => handleSendMessage(e, false)} className="chat-input-footer-tray">
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Type a message or paste a live class Zoom link here..."
                     value={typedMessage}
                     onChange={(e) => setTypedMessage(e.target.value)}
                     style={{ flex: 1, margin: 0 }}
                   />
-                  <button type="submit" className="primary-btn">
+                  <button type="submit" className="primary-btn" style={{ backgroundColor: '#1e40af' }}>
                     Send
                   </button>
 
-                  {/* TEACHER ONLY OPTION TO PIN TEXT AS EXTENDED BULK ALERTS */}
                   {userRole === 'teacher' && (
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => handleSendMessage(null, true)}
-                      className="primary-btn" 
+                      className="primary-btn"
                       style={{ backgroundColor: '#eab308' }}
                       title="Sends text message and pins it to the room top banner and student notification bells."
                     >

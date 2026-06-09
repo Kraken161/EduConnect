@@ -3,8 +3,13 @@ import axios from 'axios';
 
 const Dashboard = () => {
   const [bookings, setBookings] = useState([]);
-  const [zoomLinks, setZoomLinks] = useState({});
   const loggedInUser = localStorage.getItem('userName'); 
+
+  // --- NEW PHASE 2 MODAL STATES ---
+  const [selectedBookingForAcceptance, setSelectedBookingForAcceptance] = useState(null);
+  const [acceptMode, setAcceptMode] = useState('now'); // 'now' or 'later'
+  const [waitTime, setWaitTime] = useState(10); // 10 to 60 minutes slider
+  const [meetingLink, setMeetingLink] = useState("");
 
   const fetchBookings = async () => {
     try {
@@ -20,6 +25,7 @@ const Dashboard = () => {
     fetchBookings();
   }, []);
 
+  // Used for Decline (Cancelled)
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/bookings/${id}`, { status: newStatus });
@@ -29,19 +35,35 @@ const Dashboard = () => {
     }
   };
 
-  const handleSaveZoomLink = async (bookingId) => {
-    const linkToSave = zoomLinks[bookingId];
-    if (!linkToSave || !linkToSave.trim()) return alert("Please paste a valid Zoom link first!");
+  // OVERHAULED: Handler for submitting the new Accept Modal
+  const handleConfirmAcceptance = async (e) => {
+    e.preventDefault();
+    
+    // FIXED: Only force the Zoom link if they are starting NOW
+    if (acceptMode === 'now' && !meetingLink.trim()) {
+      alert("Please provide a valid meeting link (e.g., Zoom URL) to start the class immediately.");
+      return;
+    }
 
     try {
-      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/bookings/${bookingId}/zoom-link`, {
-        meetingLink: linkToSave.trim()
-      });
-      alert("Zoom link successfully sent to student portal!");
-      fetchBookings();
+      const payload = {
+        status: 'Confirmed',
+        meetingLink: meetingLink.trim(),
+        waitTime: acceptMode === 'now' ? 0 : waitTime
+      };
+
+      // Sends data to the Phase 1 upgraded backend route
+      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/bookings/${selectedBookingForAcceptance._id}`, payload);
+      
+      // Reset modal states and close
+      setSelectedBookingForAcceptance(null);
+      setMeetingLink("");
+      setWaitTime(10);
+      setAcceptMode('now');
+      fetchBookings(); 
     } catch (err) {
-      console.error("Error saving Zoom link:", err);
-      alert("Failed to save Zoom link.");
+      console.error("Error accepting booking:", err);
+      alert("Failed to confirm booking. Check server connection.");
     }
   };
 
@@ -57,7 +79,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div style={{ padding: '10px' }}>
+    <div style={{ padding: '10px', position: 'relative' }}>
       <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <table style={{ width: '100%', minWidth: '600px', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
           <thead>
@@ -65,7 +87,7 @@ const Dashboard = () => {
               <th style={{ padding: '12px' }}>Student</th>
               <th style={{ padding: '12px' }}>Date/Time</th>
               <th style={{ padding: '12px' }}>Status</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>Actions / Zoom Link</th>
+              <th style={{ padding: '12px', textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -91,8 +113,9 @@ const Dashboard = () => {
                 <td style={{ padding: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                   {booking.status === 'Pending' && (
                     <>
+                      {/* Instead of patching instantly, this now opens the Modal */}
                       <button 
-                        onClick={() => handleStatusChange(booking._id, 'Confirmed')} 
+                        onClick={() => setSelectedBookingForAcceptance(booking)} 
                         style={{ backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
                       >
                         Accept
@@ -107,27 +130,7 @@ const Dashboard = () => {
                   )}
                   
                   {booking.status === 'Confirmed' && (
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      {booking.meetingLink ? (
-                        <span style={{ fontSize: '0.85rem', color: '#2d8cff', fontWeight: 'bold' }}>✓ Link Shared</span>
-                      ) : (
-                        <>
-                          <input 
-                            type="text" 
-                            placeholder="Paste Zoom link..." 
-                            value={zoomLinks[booking._id] || ''} 
-                            onChange={(e) => setZoomLinks({ ...zoomLinks, [booking._id]: e.target.value })}
-                            style={{ padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #cbd5e1', borderRadius: '6px', width: '150px', margin: 0 }}
-                          />
-                          <button 
-                            onClick={() => handleSaveZoomLink(booking._id)}
-                            style={{ backgroundColor: '#2d8cff', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                          >
-                            Send
-                          </button>
-                        </>
-                      )}
-                    </div>
+                    <span style={{ fontSize: '0.85rem', color: '#2d8cff', fontWeight: 'bold' }}>✓ Processed</span>
                   )}
 
                   <button 
@@ -148,6 +151,102 @@ const Dashboard = () => {
           <p>No current session request entries found.</p>
         </div>
       )}
+
+      {/* --- PHASE 2: THE INTERACTIVE ACCEPTANCE MODAL --- */}
+      {selectedBookingForAcceptance && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '450px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            
+            <h3 style={{ color: '#1e40af', margin: '0 0 16px 0', fontSize: '1.25rem' }}>
+              Confirm Demo with {selectedBookingForAcceptance.studentName}
+            </h3>
+            
+            <form onSubmit={handleConfirmAcceptance}>
+              
+              {/* Option Toggles */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                <button 
+                  type="button"
+                  onClick={() => setAcceptMode('now')}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: acceptMode === 'now' ? '2px solid #22c55e' : '1px solid #cbd5e1', backgroundColor: acceptMode === 'now' ? '#dcfce7' : 'white', color: acceptMode === 'now' ? '#166534' : '#64748b', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  🚀 Start Now
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setAcceptMode('later')}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: acceptMode === 'later' ? '2px solid #1e40af' : '1px solid #cbd5e1', backgroundColor: acceptMode === 'later' ? '#eff6ff' : 'white', color: acceptMode === 'later' ? '#1e40af' : '#64748b', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  ⏳ Select Time
+                </button>
+              </div>
+
+              {/* The Dynamic Slider (Only shows if 'Select Time' is chosen) */}
+              {acceptMode === 'later' && (
+                <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#334155', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    Wait Time: <span style={{ color: '#1e40af', fontSize: '1.1rem' }}>{waitTime} Minutes</span>
+                  </label>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="60" 
+                    step="10" 
+                    value={waitTime} 
+                    onChange={(e) => setWaitTime(Number(e.target.value))}
+                    style={{ width: '100%', cursor: 'pointer', accentColor: '#1e40af' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                    <span>10m</span>
+                    <span>30m</span>
+                    <span>60m</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Zoom Link Input - Dynamically Required */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#334155', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  Live Class Link (Zoom/Meet) {acceptMode === 'now' && <span style={{ color: '#ef4444' }}>*</span>}
+                </label>
+                <input 
+                  type="url" 
+                  placeholder="https://zoom.us/j/..." 
+                  required={acceptMode === 'now'} // Only force the link if starting now
+                  value={meetingLink}
+                  onChange={(e) => setMeetingLink(e.target.value)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                />
+                {acceptMode === 'later' && (
+                   <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', fontStyle: 'italic' }}>
+                     Optional. You can drop the link in your 1-on-1 chat later.
+                   </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="submit" style={{ flex: 2, backgroundColor: '#22c55e', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                  Confirm & Dispatch
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setSelectedBookingForAcceptance(null);
+                    setAcceptMode('now');
+                    setMeetingLink("");
+                  }} 
+                  style={{ flex: 1, backgroundColor: '#94a3b8', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

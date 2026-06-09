@@ -10,6 +10,9 @@ const TeacherDashboard = () => {
   const loggedInUser = localStorage.getItem('userName') || "Teacher";
   const loggedInUserPhone = localStorage.getItem('userPhone') || "";
 
+  // Inline Routing State
+  const [activeTab, setActiveTab] = useState('overview');
+
   const [realStats, setRealStats] = useState({
     id: null,
     views: 0,
@@ -19,11 +22,11 @@ const TeacherDashboard = () => {
     rating: 5.0
   });
   
-  const [bookings, setBookings] = useState([]);
+  const [myStudents, setMyStudents] = useState([]);
 
   const syncTeacherPortalPipeline = async () => {
     try {
-      // 1. Fetch teacher data to calculate reviews and views dynamically
+      // 1. Fetch teacher data
       const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
       const myProfile = response.data.find(t => t.name === loggedInUser || t.phone === loggedInUserPhone);
       
@@ -38,12 +41,34 @@ const TeacherDashboard = () => {
         });
       }
 
-      // 2. Fetch assigned user appointments lists
-      const bookingRes = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/bookings');
-      const teacherBookings = bookingRes.data.filter(b => b.teacherName === loggedInUser);
-      setBookings(teacherBookings);
+      // 2. Fetch all chats to determine "My Students"
+      const chatRes = await axios.get(`https://educonnect-backend-qmdv.onrender.com/api/chats/${loggedInUserPhone}?userName=${loggedInUser}`);
+      const groupChats = chatRes.data.filter(c => c.isGroup);
+      const directChats = chatRes.data.filter(c => !c.isGroup);
+
+      // Extract unique student phones from all active classes
+      let studentPhonesInGroups = new Set();
+      groupChats.forEach(gc => {
+        gc.allowedMembers.forEach(phone => {
+          if (phone !== loggedInUserPhone) studentPhonesInGroups.add(phone);
+        });
+      });
+
+      // Map phones to names using direct chats data
+      const activeStudents = Array.from(studentPhonesInGroups).map(phone => {
+        const match = directChats.find(dc => dc.studentPhone === phone);
+        return {
+          phone,
+          name: (match && match.studentName && match.studentName !== "Student" && match.studentName !== "Guest Student") 
+            ? match.studentName 
+            : phone
+        };
+      });
+
+      setMyStudents(activeStudents);
+
     } catch (err) {
-      console.error("Failed to compile teacher metrics data channel stream:", err);
+      console.error("Failed to compile teacher metrics:", err);
     }
   };
 
@@ -64,19 +89,21 @@ const TeacherDashboard = () => {
   return (
     <div className="premium-dashboard-wrapper">
       
-      {/* COMPACT PINTEREST LEFT NAVIGATION RAIL */}
       <aside className="pinterest-sidebar">
         <div>
           <div className="sidebar-brand-title">EduConnect</div>
           <nav className="sidebar-navigation-links">
-            <button className="sidebar-nav-item active">🏠 Portal Overview</button>
+            <button className={`sidebar-nav-item ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>🏠 Portal Overview</button>
             <button className="sidebar-nav-item" onClick={() => navigate('/teacher-chats')}>💬 Class Chats</button>
+            
+            {/* NEW BOOKINGS TAB */}
+            <button className={`sidebar-nav-item ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => setActiveTab('bookings')}>📅 Bookings</button>
+            
             <button className="sidebar-nav-item" onClick={() => navigate('/teacher-settings')}>⚙️ Portal Settings</button>
           </nav>
         </div>
       </aside>
 
-      {/* RIGHT WORKSPACE DESK CONTAINER CANVAS AREA */}
       <main className="dashboard-main-content">
         
         {location.state?.message && (
@@ -94,7 +121,6 @@ const TeacherDashboard = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* INJECTED DYNAMIC BELL ICON MODULE */}
             <NotificationBell />
             <button onClick={handleLogout} className="logout-action-link" style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem' }}>
               Logout
@@ -102,7 +128,6 @@ const TeacherDashboard = () => {
           </div>
         </header>
         
-        {/* METRICS ROW SECTION */}
         <section className="summary-metrics-row">
           <div className="metric-card-box">
             <h4 style={{ color: '#64748b', fontSize: '13px', margin: 0, textTransform: 'uppercase' }}>Average Rating</h4>
@@ -123,16 +148,40 @@ const TeacherDashboard = () => {
           </div>
         </section>
 
-        {/* TWO COLUMN WORKSPACE SPLIT GRID */}
         <div className="lower-dashboard-split-grid">
           
-          {/* BROAD CONTAINER COLUMN AREA: SCHEDULER MATRIX DATA TABLE */}
-          <section className="broad-table-panel" style={{ overflowX: 'auto' }}>
-            <h3 style={{ color: '#0f172a', margin: '0 0 20px 0' }}>Incoming Student Roster Requests</h3>
-            <Dashboard />
-          </section>
+          {/* DYNAMIC TAB RENDERING */}
+          {activeTab === 'overview' ? (
+            <section className="broad-table-panel">
+              <h3 style={{ margin: '0 0 20px 0', color: '#0f172a' }}>My Students</h3>
 
-          {/* NARROW TRACKER SIDEBAR COLUMN AREA: REVIEWS LIST DISPLAY COMPONENT */}
+              {myStudents.length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
+                  No students have been assigned to your class groups yet. Accept requests in the Bookings tab and assign them in Class Chats!
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {myStudents.map((student, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.01)' }}>
+                      <h4 style={{ margin: 0, color: '#1e40af', fontSize: '1.1rem' }}>Student: {student.name}</h4>
+                      <button 
+                        onClick={() => navigate('/teacher-chats')} 
+                        style={{ backgroundColor: '#1e40af', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        💬 View Classes
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : (
+            <section className="broad-table-panel" style={{ overflowX: 'auto' }}>
+              <h3 style={{ color: '#0f172a', margin: '0 0 20px 0' }}>Incoming Student Requests</h3>
+              <Dashboard />
+            </section>
+          )}
+
           <section className="narrow-reviews-sidebar-panel">
             <h3 style={{ color: '#0f172a', margin: 0, fontSize: '1.2rem' }}>My Public Reviews</h3>
             

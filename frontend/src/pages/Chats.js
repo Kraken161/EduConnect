@@ -14,10 +14,8 @@ const Chats = () => {
   const [newChannelName, setNewChannelName] = useState("");
   const [selectedGroupToAssign, setSelectedGroupToAssign] = useState("");
   
-  // FIXED: Two separate context menus for Messages and Headers
   const [msgContextMenu, setMsgContextMenu] = useState({ visible: false, x: 0, y: 0, msgId: null });
   const [headerContextMenu, setHeaderContextMenu] = useState({ visible: false, x: 0, y: 0 });
-  
   const [toast, setToast] = useState("");
 
   const showToast = (msg) => {
@@ -54,32 +52,25 @@ const Chats = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeRoom?.messages?.length]);
 
-  // FIXED: Closes both menus when clicking away anywhere
-  useEffect(() => {
-    const closeMenus = () => {
-      setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null });
-      setHeaderContextMenu({ visible: false, x: 0, y: 0 });
-    };
-    window.addEventListener('click', closeMenus);
-    return () => window.removeEventListener('click', closeMenus);
-  }, []);
-
-  // --- CONTEXT MENU TRIGGERS ---
   const handleMsgRightClick = (e, msg) => {
     if (msg.sender !== loggedInUserName) return; 
     e.preventDefault(); 
     setMsgContextMenu({ visible: true, x: e.clientX, y: e.clientY, msgId: msg._id });
-    setHeaderContextMenu({ visible: false, x: 0, y: 0 }); // Close the other menu if open
+    setHeaderContextMenu({ visible: false, x: 0, y: 0 }); 
   };
 
   const handleHeaderRightClick = (e) => {
     if (userRole !== 'student' || !activeRoom?.isGroup) return; 
     e.preventDefault();
     setHeaderContextMenu({ visible: true, x: e.clientX, y: e.clientY });
-    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null }); // Close the other menu if open
+    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null }); 
   };
 
-  // --- CORE FUNCTIONS ---
+  const closeAllMenus = () => {
+    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null });
+    setHeaderContextMenu({ visible: false, x: 0, y: 0 });
+  };
+
   const handleSendMessage = async (e, pinStatus = false) => {
     if (e) e.preventDefault();
     if (!typedMessage.trim() || !activeRoom) return;
@@ -105,21 +96,40 @@ const Chats = () => {
     }
   };
 
-  // FIXED: Hard-bound ID processing to guarantee deletion
   const handleDeleteMessage = async (targetMsgId) => {
-    setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null }); 
-
-    if (!targetMsgId) {
-      return showToast("❌ Error: Message ID missing.");
-    }
+    closeAllMenus();
+    if (!targetMsgId) return showToast("❌ Error: Message ID missing.");
 
     try {
       await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/${activeRoom._id}/messages/${targetMsgId}`);
-      showToast("🗑️ Message deleted.");
+      showToast("🗑️ Message deleted successfully.");
       fetchChatRosters();
     } catch (err) {
-      showToast("❌ Failed to delete message.");
-      console.error("Delete Error Logs:", err);
+      if (err.response?.status === 404) {
+        showToast("❌ Backend Error: Route not found. Deploy your updated server.js to Render!");
+      } else {
+        showToast("❌ Failed to delete message.");
+      }
+    }
+  };
+
+  const handleLeaveClass = async () => {
+    closeAllMenus();
+    if (!window.confirm(`Are you sure you want to leave ${activeRoom.subjectChannelName}?`)) return;
+    
+    try {
+      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${activeRoom._id}/leave`, {
+        studentPhone: loggedInUserPhone
+      });
+      showToast("👋 You have successfully left the class.");
+      setActiveRoom(null); 
+      fetchChatRosters(); 
+    } catch (err) {
+      if (err.response?.status === 404) {
+        showToast("❌ Backend Error: Leave route not found. Deploy your updated server.js to Render!");
+      } else {
+        showToast("❌ Failed to leave class.");
+      }
     }
   };
 
@@ -165,25 +175,6 @@ const Chats = () => {
     }
   };
 
-  // FIXED: Hard-bound ID processing for leaving a class
-  const handleLeaveClass = async () => {
-    setHeaderContextMenu({ visible: false, x: 0, y: 0 }); 
-    
-    if (!window.confirm(`Are you sure you want to leave the ${activeRoom.subjectChannelName} class room?`)) return;
-    
-    try {
-      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${activeRoom._id}/leave`, {
-        studentPhone: loggedInUserPhone
-      });
-      showToast("👋 You have successfully left the class.");
-      setActiveRoom(null); 
-      fetchChatRosters(); 
-    } catch (err) {
-      showToast("❌ Failed to leave class.");
-      console.error("Leave Class Logs:", err);
-    }
-  };
-
   const getStudentDisplayName = (room) => {
     if (room.studentName && room.studentName !== "Student" && room.studentName !== "Guest Student") {
       return room.studentName;
@@ -204,52 +195,52 @@ const Chats = () => {
         </div>
       )}
 
-      {/* 1. MESSAGE DELETE CONTEXT MENU */}
       {msgContextMenu.visible && (
-        <div 
-          onClick={(e) => e.stopPropagation()} 
-          onMouseDown={(e) => e.stopPropagation()} 
-          style={{ 
-            position: 'fixed', top: msgContextMenu.y, left: msgContextMenu.x, 
-            backgroundColor: '#ffffff', 
-            border: '1px solid #cbd5e1', 
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
-            borderRadius: '8px', zIndex: 999999, padding: '4px', minWidth: '150px' 
-          }}
-        >
-          <button 
-            onClick={() => handleDeleteMessage(msgContextMenu.msgId)} 
-            style={{ width: '100%', padding: '10px 16px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '4px' }}
-            onMouseOver={(e) => e.target.style.background = '#fee2e2'}
-            onMouseOut={(e) => e.target.style.background = 'transparent'}
+        <>
+          <div onClick={closeAllMenus} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }} />
+          <div 
+            style={{ 
+              position: 'fixed', top: msgContextMenu.y, left: msgContextMenu.x, 
+              backgroundColor: '#ffffff', 
+              border: '1px solid #cbd5e1', 
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
+              borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' 
+            }}
           >
-            🗑️ Delete Message
-          </button>
-        </div>
+            <button 
+              onClick={() => handleDeleteMessage(msgContextMenu.msgId)} 
+              style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }}
+              onMouseOver={(e) => e.target.style.background = '#fee2e2'}
+              onMouseOut={(e) => e.target.style.background = 'transparent'}
+            >
+              🗑️ Delete Message
+            </button>
+          </div>
+        </>
       )}
 
-      {/* 2. LEAVE CLASS CONTEXT MENU (Triggered by right-clicking the Group Header) */}
       {headerContextMenu.visible && (
-        <div 
-          onClick={(e) => e.stopPropagation()} 
-          onMouseDown={(e) => e.stopPropagation()} 
-          style={{ 
-            position: 'fixed', top: headerContextMenu.y, left: headerContextMenu.x, 
-            backgroundColor: '#ffffff', 
-            border: '1px solid #cbd5e1', 
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
-            borderRadius: '8px', zIndex: 999999, padding: '4px', minWidth: '150px' 
-          }}
-        >
-          <button 
-            onClick={handleLeaveClass} 
-            style={{ width: '100%', padding: '10px 16px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '4px' }}
-            onMouseOver={(e) => e.target.style.background = '#fee2e2'}
-            onMouseOut={(e) => e.target.style.background = 'transparent'}
+        <>
+          <div onClick={closeAllMenus} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }} />
+          <div 
+            style={{ 
+              position: 'fixed', top: headerContextMenu.y, left: headerContextMenu.x, 
+              backgroundColor: '#ffffff', 
+              border: '1px solid #cbd5e1', 
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)', 
+              borderRadius: '10px', zIndex: 999999, padding: '6px', minWidth: '160px' 
+            }}
           >
-            🚪 Leave Class
-          </button>
-        </div>
+            <button 
+              onClick={handleLeaveClass} 
+              style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', textAlign: 'left', borderRadius: '6px' }}
+              onMouseOver={(e) => e.target.style.background = '#fee2e2'}
+              onMouseOut={(e) => e.target.style.background = 'transparent'}
+            >
+              🚪 Leave Class
+            </button>
+          </div>
+        </>
       )}
 
       <aside className="pinterest-sidebar">
@@ -267,7 +258,7 @@ const Chats = () => {
       <main className="dashboard-main-content">
         <header style={{ marginBottom: '24px', textAlign: 'left' }}>
           <h2>Class Chats Hub</h2>
-          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Right-click (or long-press on mobile) your messages to delete them, or Class Names to leave.</p>
+          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Right-click (or long-press) messages to delete them, or Class Names to leave.</p>
         </header>
 
         <div className="chat-workspace-container">
@@ -331,24 +322,27 @@ const Chats = () => {
               <>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   
-                  {/* OVERHAULED HEADER: Right-click this header to open the Leave Class menu */}
+                  {/* CLEAN HEADER: Just the name nicely aligned */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <h4 
                       onContextMenu={handleHeaderRightClick}
                       style={{ 
                         margin: 0, 
                         color: '#1e40af', 
-                        cursor: (userRole === 'student' && activeRoom.isGroup) ? 'context-menu' : 'default' 
+                        cursor: (userRole === 'student' && activeRoom.isGroup) ? 'context-menu' : 'default',
+                        display: 'flex',
+                        alignItems: 'center'
                       }}
                       title={(userRole === 'student' && activeRoom.isGroup) ? "Right-click to leave class" : ""}
                     >
-                      {activeRoom.isGroup ? `Group Room: ${activeRoom.subjectChannelName}` : `Private Workspace: ${userRole === 'teacher' ? getStudentDisplayName(activeRoom) : activeRoom.teacherName}`}
+                      {activeRoom.isGroup 
+                        ? activeRoom.subjectChannelName 
+                        : (userRole === 'teacher' ? getStudentDisplayName(activeRoom) : activeRoom.teacherName)}
                     </h4>
                   </div>
 
-                  {/* OVERHAULED ASSIGNMENT UI: Fused together perfectly with Theme Blue */}
                   {userRole === 'teacher' && !activeRoom.isGroup && (
-                    <div style={{ display: 'flex', alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1e40af' }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', borderRadius: '8px', overflow: 'hidden', border: '2px solid #1e40af' }}>
                       <select 
                         value={selectedGroupToAssign}
                         onChange={(e) => setSelectedGroupToAssign(e.target.value)}

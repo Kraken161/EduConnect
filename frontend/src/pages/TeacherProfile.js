@@ -8,8 +8,8 @@ const TeacherProfile = () => {
 
   const [isBooking, setIsBooking] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+
+  // Removed selectedDate and selectedTime states entirely
 
   const [teacher, setTeacher] = useState({ name: "Loading...", bio: "Loading details..." });
   const loggedInStudent = localStorage.getItem('userName') || "Guest Student";
@@ -85,14 +85,14 @@ const TeacherProfile = () => {
     }
   };
 
-  const renderStars = (num) => "★".repeat(num) + "☆".repeat(5 - num);
+  const renderStars = (num) => "★".repeat(num) + "☆".repeat(5 - Math.round(num));
 
   // Professional Automated WhatsApp Message
   const whatsappMessage = encodeURIComponent(`Hello, my name is ${loggedInStudent}. I found your profile on EduConnect and would like to inquire about booking a class.`);
 
-  // FIXED: ADDED THE STUDENT PHONE TRACER HERE
+  // FIXED: Overhauled booking submit to bypass inputs and trigger a chat thread
   const handleBookingSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     // RETRIEVING THE ESSENTIAL PHONE TRACER TO PREVENT SCHEMA CRASHES
     const loggedInStudentPhone = localStorage.getItem('userPhone') || "";
@@ -100,9 +100,9 @@ const TeacherProfile = () => {
     const bookingData = { 
       teacherName: teacher.name, 
       studentName: loggedInStudent, 
-      studentPhone: loggedInStudentPhone, // INJECTED PARAMETER
-      date: selectedDate, 
-      time: selectedTime 
+      studentPhone: loggedInStudentPhone, 
+      date: "Chat Request Thread", // Defaulting to chat request
+      time: "To be coordinated"    // Teacher handles scheduling
     };
 
     try {
@@ -196,31 +196,40 @@ const TeacherProfile = () => {
         </div>
       </div>
 
-      {/* BOOKING MODAL */}
+      {/* OVERHAULED BOOKING MODAL (No Inputs) */}
       {isBooking && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div className="glass-card" style={{ maxWidth: '400px', width: '90%', textAlign: 'center' }}>
             {!bookingSuccess ? (
               <>
-                <h3 style={{ color: '#1e40af' }}>Schedule Demo</h3>
-                <form onSubmit={handleBookingSubmit} style={{ marginTop: '20px' }}>
-                  <input type="date" required value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-                  <select required value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                    <option value="">Select Time Slot</option>
-                    <option>10:00 AM - 10:30 AM</option>
-                    <option>04:00 PM - 04:30 PM</option>
-                  </select>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button type="submit" className="primary-btn" style={{ flex: 1 }}>Confirm</button>
-                    <button type="button" className="primary-btn" style={{ flex: 1, background: '#94a3b8' }} onClick={() => setIsBooking(false)}>Cancel</button>
-                  </div>
-                </form>
+                <h3 style={{ color: '#1e40af', margin: '0 0 10px 0' }}>Request Demo Class</h3>
+                <p style={{ color: '#64748b', fontSize: '0.95rem', margin: '10px 0 25px 0', lineHeight: '1.5' }}>
+                  Click confirm to send a demo request. The mentor will contact you via your dashboard to finalize the schedule directly!
+                </p>
+                
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    className="primary-btn" 
+                    style={{ flex: 1 }} 
+                    onClick={handleBookingSubmit}
+                  >
+                    Confirm Request
+                  </button>
+                  <button 
+                    type="button" 
+                    className="primary-btn" 
+                    style={{ flex: 1, background: '#94a3b8' }} 
+                    onClick={() => setIsBooking(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </>
             ) : (
               <div style={{ padding: '20px' }}>
-                <div style={{ fontSize: '3rem', color: '#059669' }}>✓</div>
-                <h3 style={{ color: '#059669' }}>Request Sent!</h3>
-                <button className="primary-btn" onClick={() => { setIsBooking(false); setBookingSuccess(false); }}>Close</button>
+                <div style={{ fontSize: '3rem', color: '#059669', marginBottom: '10px' }}>✓</div>
+                <h3 style={{ color: '#059669', margin: 0 }}>Request Sent!</h3>
+                <button className="primary-btn" style={{ marginTop: '20px' }} onClick={() => { setIsBooking(false); setBookingSuccess(false); }}>Close</button>
               </div>
             )}
           </div>

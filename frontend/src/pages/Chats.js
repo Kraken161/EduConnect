@@ -145,7 +145,7 @@ const Chats = () => {
     }
   };
 
-  // NEW: API call to completely sever a 1-on-1 connection
+ 
   const handleRemoveConnection = async () => {
     const targetRoom = sidebarContextMenu.room;
     closeAllMenus();
@@ -182,26 +182,30 @@ const Chats = () => {
     }
   };
 
-  const handleQuickAssignToClass = async () => {
+const handleQuickAssignToClass = async () => {
     if (!selectedGroupToAssign || !activeRoom || activeRoom.isGroup) return;
 
     try {
-      await axios.patch(
+     
+      const response = await axios.patch(
         `http://localhost:5000/api/chats/channels/${selectedGroupToAssign}/add-student`,
         { studentPhone: activeRoom.studentPhone }
       );
 
+      
       await axios.post('http://localhost:5000/api/notifications', {
         recipientPhone: activeRoom.studentPhone,
         message: `📚 You have been added to a Class Group Channel by Mentor ${loggedInUserName}!`
       });
 
-      showToast("✅ Student instantly assigned to the class!");
+      
+      showToast("✅ Student successfully added to the class!");
       setSelectedGroupToAssign("");
-      fetchChatRosters();
+      fetchChatRosters(); 
     } catch (err) {
-      const backendErrorMessage = err.response?.data?.error || "Failed to bind student.";
-      showToast(`⚠️ Assignment Intercepted: ${backendErrorMessage}`);
+      
+      const backendErrorMessage = err.response?.data?.error || "Student already in class or binding failed.";
+      showToast(`⚠️ Assignment Alert: ${backendErrorMessage}`);
     }
   };
 

@@ -21,11 +21,11 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [fetchBookings]); 
 
-  // Used for Decline (Cancelled)
+ 
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.patch(`http://localhost:5000/api/bookings/${id}`, { status: newStatus });
@@ -35,11 +35,11 @@ const Dashboard = () => {
     }
   };
 
-  // OVERHAULED: Handler for submitting the new Accept Modal
+
   const handleConfirmAcceptance = async (e) => {
     e.preventDefault();
     
-    // FIXED: Only force the Zoom link if they are starting NOW
+   
     if (acceptMode === 'now' && !meetingLink.trim()) {
       alert("Please provide a valid meeting link (e.g., Zoom URL) to start the class immediately.");
       return;
@@ -112,33 +112,31 @@ const Dashboard = () => {
                 
                 <td style={{ padding: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                   {booking.status === 'Pending' && (
-                    <>
-                      {/* Instead of patching instantly, this now opens the Modal */}
-                      <button 
-                        onClick={() => setSelectedBookingForAcceptance(booking)} 
-                        style={{ backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                      >
-                        Accept
-                      </button>
-                      <button 
-                        onClick={() => handleStatusChange(booking._id, 'Cancelled')} 
-                        style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                      >
-                        Decline
-                      </button>
-                    </>
-                  )}
-                  
-                  {booking.status === 'Confirmed' && (
-                    <span style={{ fontSize: '0.85rem', color: '#2d8cff', fontWeight: 'bold' }}>✓ Processed</span>
-                  )}
-
-                  <button 
-                    onClick={() => handleDelete(booking._id)} 
-                    style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                  >
-                    Delete
-                  </button>
+  <>
+    {/* OVERHAULED: Conditional Button Logic */}
+    <button 
+      onClick={() => {
+        // If it's a Chat Request, handle it directly (without the modal)
+        if (booking.date === "Chat Request Thread") {
+            handleStatusChange(booking._id, 'Confirmed'); // Confirms directly
+            alert("Chat Request Accepted!");
+        } else {
+            // Only open the modal for actual Demo Bookings
+            setSelectedBookingForAcceptance(booking);
+        }
+      }} 
+      style={{ backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+    >
+      Accept
+    </button>
+    <button 
+      onClick={() => handleStatusChange(booking._id, 'Cancelled')} 
+      style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+    >
+      Decline
+    </button>
+  </>
+)}
                 </td>
               </tr>
             ))}

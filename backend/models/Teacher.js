@@ -9,8 +9,8 @@ const teacherSchema = new mongoose.Schema({
     teachingLevel: { type: String }, 
     subjects: [{ type: String }], 
     bio: { type: String },
-    status: { type: String, default: 'Active & Visible' }, // Moved visibility tracking out of local states
-    rating: { type: Number, default: 5.0 }, // Calculated dynamically from review average array math
+    status: { type: String, default: 'Active & Visible' }, 
+    rating: { type: Number, default: 5.0 }, 
     profileViews: { type: Number, default: 0 },
     viewedBy: { type: Array, default: [] },
     reviews: [{
@@ -20,7 +20,7 @@ const teacherSchema = new mongoose.Schema({
         text: { type: String },
         createdAt: { type: Date, default: Date.now }
     }],
-    myMentoredStudents: [{ type: String }] // Phone arrays of students who formally clicked "Accept as Mentor"
+    myMentoredStudents: [{ type: String }] 
 }, { timestamps: true });
 
 module.exports = mongoose.model('Teacher', teacherSchema);

@@ -11,9 +11,9 @@ const bookingSchema = new mongoose.Schema({
     default: 'Pending', 
     enum: ['Pending', 'Confirmed', 'Cancelled'] 
   },
-  // PHASE 1 OVERHAUL: New Data Fields
+  
   meetingLink: { type: String, default: "" },
-  waitTime: { type: Number, default: 0 } // 0 means "Start Now", 10-60 means scheduled delay
+  waitTime: { type: Number, default: 0 } 
 }, { timestamps: true }); 
 
 module.exports = mongoose.model('Booking', bookingSchema);

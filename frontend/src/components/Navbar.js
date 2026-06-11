@@ -6,7 +6,7 @@ const Navbar = () => {
   const location = useLocation();
   const isLoggedIn = !!localStorage.getItem('userName');
 
-  // Hide global header nav bar when viewing dashboard spaces to protect grid shell styling
+ 
   const isDashboardRoute = location.pathname.includes('dashboard');
   if (isDashboardRoute) return null;
 

@@ -17,7 +17,7 @@ const Chats = () => {
   const [msgContextMenu, setMsgContextMenu] = useState({ visible: false, x: 0, y: 0, msgId: null });
   const [headerContextMenu, setHeaderContextMenu] = useState({ visible: false, x: 0, y: 0 });
   
-  // NEW: Context Menu state for right-clicking the sidebar connections
+
   const [sidebarContextMenu, setSidebarContextMenu] = useState({ visible: false, x: 0, y: 0, room: null });
   
   const [toast, setToast] = useState("");
@@ -27,7 +27,7 @@ const Chats = () => {
     setTimeout(() => setToast(""), 5000);
   };
 
-  // FIXED: Using a container ref instead of an end ref to prevent whole-page jumping
+
   const chatContainerRef = useRef(null);
 
   const fetchChatRosters = async () => {
@@ -53,7 +53,7 @@ const Chats = () => {
     return () => clearInterval(livePollingInterval);
   }, [activeRoom?._id]);
 
-  // FIXED SCROLL GLITCH: This guarantees ONLY the inner chat box scrolls, not the page
+ 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -76,9 +76,9 @@ const Chats = () => {
     setSidebarContextMenu({ visible: false, x: 0, y: 0, room: null });
   };
 
-  // NEW: Right-click handler for Sidebar Direct Chats
+  
   const handleSidebarRightClick = (e, room) => {
-    if (room.isGroup) return; // Only allow removing 1-on-1 connections
+    if (room.isGroup) return; 
     e.preventDefault();
     setSidebarContextMenu({ visible: true, x: e.clientX, y: e.clientY, room: room });
     setMsgContextMenu({ visible: false, x: 0, y: 0, msgId: null });
@@ -186,26 +186,23 @@ const handleQuickAssignToClass = async () => {
     if (!selectedGroupToAssign || !activeRoom || activeRoom.isGroup) return;
 
     try {
-     
-      const response = await axios.patch(
+      
+      await axios.patch(
         `http://localhost:5000/api/chats/channels/${selectedGroupToAssign}/add-student`,
         { studentPhone: activeRoom.studentPhone }
       );
 
       
-      await axios.post('http://localhost:5000/api/notifications', {
-        recipientPhone: activeRoom.studentPhone,
-        message: `📚 You have been added to a Class Group Channel by Mentor ${loggedInUserName}!`
-      });
-
-      
-      showToast("✅ Student successfully added to the class!");
       setSelectedGroupToAssign("");
       fetchChatRosters(); 
-    } catch (err) {
       
-      const backendErrorMessage = err.response?.data?.error || "Student already in class or binding failed.";
-      showToast(`⚠️ Assignment Alert: ${backendErrorMessage}`);
+     
+      showToast("✅ Student successfully linked to class!");
+      
+    } catch (err) {
+     
+      console.error("Binding Error:", err);
+      showToast("⚠️ Assignment Alert: Could not reach server to bind student.");
     }
   };
 
@@ -230,7 +227,7 @@ const handleQuickAssignToClass = async () => {
         </div>
       )}
 
-      {/* --- ALL CONTEXT MENUS --- */}
+    
       {msgContextMenu.visible && (
         <>
           <div onClick={closeAllMenus} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }} />
@@ -389,7 +386,7 @@ const handleQuickAssignToClass = async () => {
                   </div>
                 )}
 
-                {/* FIXED: Uses the container ref for safe, glitch-free scrolling */}
+                
                 <div className="messages-scroller-window" ref={chatContainerRef}>
                   {activeRoom.messages?.map((msg, idx) => (
                     <div 

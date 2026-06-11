@@ -94,7 +94,6 @@ app.get('/api/bookings', async (req, res) => {
     }
 });
 
-// --- THE MISSING ROUTE WE RESTORED ---
 app.get('/api/teachers', async (req, res) => {
     try {
         const allTeachers = await Teacher.find({});
@@ -103,7 +102,6 @@ app.get('/api/teachers', async (req, res) => {
         res.status(500).json({ error: "Could not fetch teachers" });
     }
 });
-// -------------------------------------
 
 app.patch('/api/teachers/:id', async (req, res) => {
     try {
@@ -328,6 +326,32 @@ app.patch('/api/notifications/clear/:phone', async (req, res) => {
 // ==========================================
 // AUTHENTICATION & SETTINGS PROFILES LINKING
 // ==========================================
+
+// --- RESTORED REGISTRATION ROUTES ---
+app.post('/api/students', async (req, res) => {
+    try {
+        const newStudent = new Student(req.body);
+        await newStudent.save();
+        console.log("✅ New Student Registered:", newStudent.name);
+        res.status(201).json(newStudent);
+    } catch (error) {
+        console.error("❌ Student Signup Error:", error);
+        res.status(500).json({ error: "Failed to save student to database." });
+    }
+});
+
+app.post('/api/teachers', async (req, res) => {
+    try {
+        const newTeacher = new Teacher(req.body);
+        await newTeacher.save();
+        console.log("✅ New Teacher Registered:", newTeacher.name);
+        res.status(201).json(newTeacher);
+    } catch (error) {
+        console.error("❌ Teacher Signup Error:", error);
+        res.status(500).json({ error: "Failed to save teacher to database." });
+    }
+});
+// ------------------------------------
 
 app.patch('/api/students/update-profile/:phone', async (req, res) => {
     try {

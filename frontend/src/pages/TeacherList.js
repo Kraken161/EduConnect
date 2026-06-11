@@ -14,7 +14,7 @@ const TeacherList = () => {
     const fetchTeachers = async () => {
       try {
         // FIXED: Pointed endpoint to your actual live cloud backend service URL
-        const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+        const response = await axios.get('http://localhost:5000/api/teachers');
         setTeachers(response.data);
         setIsLoading(false);
       } catch (err) {

@@ -22,7 +22,7 @@ const TeacherProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await axiosInstance.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+        const response = await axiosInstance.get('http://localhost:5000/api/teachers');
         const found = response.data.find(t => t._id === id);
         
         if (found) {
@@ -35,7 +35,7 @@ const TeacherProfile = () => {
             
             // If this student's name is NOT in the array yet, count the view!
             if (!viewers.includes(loggedInStudent)) {
-              await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${found._id}`, {
+              await axiosInstance.patch(`http://localhost:5000/api/teachers/${found._id}`, {
                 profileViews: (found.profileViews || 0) + 1,
                 viewedBy: [...viewers, loggedInStudent] 
               });
@@ -63,7 +63,7 @@ const TeacherProfile = () => {
 
       // SAVE PERMANENTLY TO DATABASE
       try {
-        await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacher._id}`, {
+        await axiosInstance.patch(`http://localhost:5000/api/teachers/${teacher._id}`, {
           reviews: updatedReviews
         });
       } catch (error) {
@@ -77,7 +77,7 @@ const TeacherProfile = () => {
     setReviews(updatedReviews);
 
     try {
-      await axiosInstance.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacher._id}`, {
+      await axiosInstance.patch(`http://localhost:5000/api/teachers/${teacher._id}`, {
         reviews: updatedReviews
       });
     } catch (error) {
@@ -106,7 +106,7 @@ const TeacherProfile = () => {
     };
 
     try {
-      await axiosInstance.post('https://educonnect-backend-qmdv.onrender.com/api/bookings', bookingData);
+      await axiosInstance.post('http://localhost:5000/api/bookings', bookingData);
       setBookingSuccess(true);
       setTimeout(() => { setIsBooking(false); setBookingSuccess(false); }, 3000);
     } catch (error) {

@@ -17,12 +17,12 @@ const StudentDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const bookingRes = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/bookings');
+      const bookingRes = await axios.get('http://localhost:5000/api/bookings');
       const studentBookings = bookingRes.data.filter(b => b.studentName === loggedInStudent);
       setMyBookings(studentBookings);
 
       // Fetch 1-on-1 Direct Chat connections to define active Mentors
-      const chatRes = await axios.get(`https://educonnect-backend-qmdv.onrender.com/api/chats/${loggedInStudentPhone}?userName=${loggedInStudent}`);
+      const chatRes = await axios.get(`http://localhost:5000/api/chats/${loggedInStudentPhone}?userName=${loggedInStudent}`);
       const directConnections = chatRes.data.filter(c => !c.isGroup);
       setMyMentors(directConnections);
 
@@ -44,7 +44,7 @@ const StudentDashboard = () => {
     if (!window.confirm(`Are you sure you want to permanently remove Mentor ${mentorName}?`)) return;
     
     try {
-      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${roomId}`);
+      await axios.delete(`http://localhost:5000/api/chats/channels/${roomId}`);
       alert("Mentor connection removed successfully.");
       fetchDashboardData();
     } catch (err) {

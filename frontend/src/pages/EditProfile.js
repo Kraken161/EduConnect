@@ -16,7 +16,7 @@ const EditProfile = () => {
     const fetchProfile = async () => {
       try {
         // FIXED: Replaced nested code chunk with the proper live backend link
-        const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+        const response = await axios.get('http://localhost:5000/api/teachers');
         const myProfile = response.data.find(t => t.name === loggedInUser);
         
         if (myProfile) {
@@ -47,7 +47,7 @@ const EditProfile = () => {
       
       if (teacherId) {
         // FIXED: Replaced nested code chunk with the proper live backend patch endpoint
-        await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/${teacherId}`, updatedData);
+        await axios.patch(`http://localhost:5000/api/teachers/${teacherId}`, updatedData);
       }
       
       navigate('/teacher-dashboard', { state: { message: "Profile updated successfully!" } });

@@ -19,19 +19,19 @@ const StudentSignup = () => {
   const handleSignup = async (e) => {
     e.preventDefault();
 
-    // PASSWORD CONFIRMATION PARITY VALIDATION
+    
     if (formData.password !== confirmPassword) {
       alert("⚠️ Password Matching Mismatch: Please ensure Create Password and Confirm Password matches exactly.");
       return;
     }
 
     try {
-      // Swapped frontend static URL for your live backend cloud API service
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/students', formData);
+     
+      await axios.post('http://localhost:5000/api/students', formData);
       
-      // Save session
+     
       localStorage.setItem('userName', formData.name);
-      localStorage.setItem('userPhone', formData.phone); // Saved phone to reference state storage indices
+      localStorage.setItem('userPhone', formData.phone); 
       localStorage.setItem('userRole', 'student');
       
       navigate('/student-dashboard');

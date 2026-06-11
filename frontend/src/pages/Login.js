@@ -13,7 +13,7 @@ const Login = () => {
     
     try {
       // Swapped out the static site link for your live cloud backend login service endpoint
-      const response = await axios.post('https://educonnect-backend-qmdv.onrender.com/api/login', credentials);
+      const response = await axios.post('http://localhost:5000/api/login', credentials);
       
       // If successful, save the real user data to memory
       localStorage.setItem('userRole', credentials.role);

@@ -23,7 +23,7 @@ const SearchMentors = () => {
   useEffect(() => {
     const fetchTeachers = async () => {
       try {
-        const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+        const response = await axios.get('http://localhost:5000/api/teachers');
         setTeachers(response.data);
         setIsLoading(false);
       } catch (err) {
@@ -84,7 +84,7 @@ const SearchMentors = () => {
     }
 
     try {
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/bookings', {
+      await axios.post('http://localhost:5000/api/bookings', {
         teacherName: teacher.name,
         studentName: loggedInStudentName,
         studentPhone: loggedInStudentPhone,

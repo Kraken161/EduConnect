@@ -16,7 +16,7 @@ const TeacherSignup = () => {
 
   const navigate = useNavigate();
 
-  // The logic to show the right subjects based on the class level
+ 
   const class10Subjects = ["Science", "Mathematics", "English", "Social Science"];
   const class12Subjects = ["Physics", "Chemistry", "Biology", "Mathematics", "English", "Social Science"];
   
@@ -25,9 +25,9 @@ const TeacherSignup = () => {
 
   const handleSubjectToggle = (subject) => {
     if (selectedSubjects.includes(subject)) {
-      setSelectedSubjects(selectedSubjects.filter(s => s !== subject)); // Remove if already checked
+      setSelectedSubjects(selectedSubjects.filter(s => s !== subject)); 
     } else {
-      setSelectedSubjects([...selectedSubjects, subject]); // Add if not checked
+      setSelectedSubjects([...selectedSubjects, subject]);
     }
   };
 
@@ -46,7 +46,7 @@ const TeacherSignup = () => {
 
     try {
       // FIXED: Pointed registration endpoint directly to your live cloud server
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/teachers', newTeacher);
+      await axios.post('http://localhost:5000/api/teachers', newTeacher);
       localStorage.setItem('userName', name);
       localStorage.setItem('userRole', 'teacher');
       navigate('/teacher-dashboard');

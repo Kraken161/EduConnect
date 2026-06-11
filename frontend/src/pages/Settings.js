@@ -24,7 +24,7 @@ const Settings = () => {
     const fetchProfileContext = async () => {
       try {
         if (userRole === 'teacher') {
-          const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+          const response = await axios.get('http://localhost:5000/api/teachers');
           const myProfile = response.data.find(t => t.name === loggedInUserName);
           if (myProfile) {
             setTechnicalId(myProfile._id);
@@ -33,7 +33,7 @@ const Settings = () => {
           }
         } else {
           // For students, fetch current location data from the database list if needed
-          const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers'); // fallback channel read
+          const response = await axios.get('http://localhost:5000/api/teachers'); // fallback channel read
           // Defaults to session string parameters or local defaults gracefully
           setSelectedCity('Guwahati');
         }
@@ -62,9 +62,9 @@ const Settings = () => {
       
       if (userRole === 'teacher') {
         updatePayload.status = availabilityStatus;
-        await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/update-profile/${technicalId}`, updatePayload);
+        await axios.patch(`http://localhost:5000/api/teachers/update-profile/${technicalId}`, updatePayload);
       } else {
-        await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/students/update-profile/${loggedInUserPhone}`, updatePayload);
+        await axios.patch(`http://localhost:5000/api/students/update-profile/${loggedInUserPhone}`, updatePayload);
       }
 
       alert("🔒 Security parameters and privacy updates saved successfully!");
@@ -80,9 +80,9 @@ const Settings = () => {
     e.preventDefault();
     try {
       if (userRole === 'teacher') {
-        await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/teachers/update-profile/${technicalId}`, { location: selectedCity });
+        await axios.patch(`http://localhost:5000/api/teachers/update-profile/${technicalId}`, { location: selectedCity });
       } else {
-        await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/students/update-profile/${loggedInUserPhone}`, { location: selectedCity });
+        await axios.patch(`http://localhost:5000/api/students/update-profile/${loggedInUserPhone}`, { location: selectedCity });
       }
       alert("📍 District location configurations updated cleanly!");
     } catch (err) {
@@ -100,9 +100,9 @@ const Settings = () => {
     if (confirmationPrompt) {
       try {
         if (userRole === 'teacher') {
-          await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/teachers/delete-account/${technicalId}`);
+          await axios.delete(`http://localhost:5000/api/teachers/delete-account/${technicalId}`);
         } else {
-          await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/students/delete-account/${loggedInUserPhone}`);
+          await axios.delete(`http://localhost:5000/api/students/delete-account/${loggedInUserPhone}`);
         }
         
         alert("Account records cleared. We are sorry to see you go!");

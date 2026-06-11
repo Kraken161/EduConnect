@@ -13,7 +13,7 @@ const Dashboard = () => {
 
   const fetchBookings = async () => {
     try {
-      const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/bookings');
+      const response = await axios.get('http://localhost:5000/api/bookings');
       const myBookings = response.data.filter(b => b.teacherName === loggedInUser);
       setBookings(myBookings);
     } catch (err) {
@@ -28,7 +28,7 @@ const Dashboard = () => {
   // Used for Decline (Cancelled)
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/bookings/${id}`, { status: newStatus });
+      await axios.patch(`http://localhost:5000/api/bookings/${id}`, { status: newStatus });
       fetchBookings(); 
     } catch (err) {
       console.error("Error updating status:", err);
@@ -53,7 +53,7 @@ const Dashboard = () => {
       };
 
       // Sends data to the Phase 1 upgraded backend route
-      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/bookings/${selectedBookingForAcceptance._id}`, payload);
+      await axios.patch(`http://localhost:5000/api/bookings/${selectedBookingForAcceptance._id}`, payload);
       
       // Reset modal states and close
       setSelectedBookingForAcceptance(null);
@@ -70,7 +70,7 @@ const Dashboard = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to remove this booking request?")) {
       try {
-        await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/bookings/${id}`);
+        await axios.delete(`http://localhost:5000/api/bookings/${id}`);
         fetchBookings();
       } catch (err) {
         console.error("Error deleting:", err);

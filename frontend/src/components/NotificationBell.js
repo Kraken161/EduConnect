@@ -11,7 +11,7 @@ const NotificationBell = () => {
   const fetchAlertsContainer = async () => {
     if (!loggedInUserPhone) return;
     try {
-      const response = await axios.get(`https://educonnect-backend-qmdv.onrender.com/api/notifications/${loggedInUserPhone}`);
+      const response = await axios.get(`http://localhost:5000/api/notifications/${loggedInUserPhone}`);
       setNotifications(response.data);
     } catch (err) {
       console.error("Error syncing notifications bell logs:", err);
@@ -32,7 +32,7 @@ const NotificationBell = () => {
     const unreadAlerts = notifications.filter(n => !n.isRead);
     if (!showDropdown && unreadAlerts.length > 0) {
       try {
-        await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/notifications/clear/${loggedInUserPhone}`);
+        await axios.patch(`http://localhost:5000/api/notifications/clear/${loggedInUserPhone}`);
         // Instantly switch state arrays locally so the red badge turns off immediately
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       } catch (err) {

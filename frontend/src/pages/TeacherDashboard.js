@@ -29,7 +29,7 @@ const TeacherDashboard = () => {
   const syncTeacherPortalPipeline = async () => {
     try {
       // 1. Fetch teacher profile analytics
-      const response = await axios.get('https://educonnect-backend-qmdv.onrender.com/api/teachers');
+      const response = await axios.get('http://localhost:5000/api/teachers');
       const myProfile = response.data.find(t => t.name === loggedInUser || t.phone === loggedInUserPhone);
       
       if (myProfile) {
@@ -44,7 +44,7 @@ const TeacherDashboard = () => {
       }
 
       // 2. Fetch all Direct Chat connections to define "My Students"
-      const chatRes = await axios.get(`https://educonnect-backend-qmdv.onrender.com/api/chats/${loggedInUserPhone}?userName=${loggedInUser}`);
+      const chatRes = await axios.get(`http://localhost:5000/api/chats/${loggedInUserPhone}?userName=${loggedInUser}`);
       const directConnections = chatRes.data.filter(c => !c.isGroup);
       setMyStudents(directConnections);
 
@@ -66,7 +66,7 @@ const TeacherDashboard = () => {
     if (!window.confirm(`Are you sure you want to permanently remove your connection with Student: ${studentName}?`)) return;
     
     try {
-      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${roomId}`);
+      await axios.delete(`http://localhost:5000/api/chats/channels/${roomId}`);
       alert("Student connection removed successfully.");
       syncTeacherPortalPipeline(); // Refresh the list
     } catch (err) {

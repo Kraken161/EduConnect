@@ -33,7 +33,7 @@ const Chats = () => {
   const fetchChatRosters = async () => {
     try {
       const response = await axios.get(
-        `https://educonnect-backend-qmdv.onrender.com/api/chats/${loggedInUserPhone}?userName=${loggedInUserName}`
+        `http://localhost:5000/api/chats/${loggedInUserPhone}?userName=${loggedInUserName}`
       );
       setChatRooms(response.data);
       if (response.data.length > 0 && !activeRoom) {
@@ -105,7 +105,7 @@ const Chats = () => {
       };
 
       await axios.post(
-        `https://educonnect-backend-qmdv.onrender.com/api/chats/${activeRoom._id}/messages`,
+        `http://localhost:5000/api/chats/${activeRoom._id}/messages`,
         messagePayload
       );
 
@@ -121,7 +121,7 @@ const Chats = () => {
     if (!targetMsgId) return showToast("❌ Error: Message ID missing.");
 
     try {
-      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/${activeRoom._id}/messages/${targetMsgId}`);
+      await axios.delete(`http://localhost:5000/api/chats/${activeRoom._id}/messages/${targetMsgId}`);
       showToast("🗑️ Message deleted successfully.");
       fetchChatRosters();
     } catch (err) {
@@ -134,7 +134,7 @@ const Chats = () => {
     if (!window.confirm(`Are you sure you want to leave the ${activeRoom.subjectChannelName} class room?`)) return;
     
     try {
-      await axios.patch(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${activeRoom._id}/leave`, {
+      await axios.patch(`http://localhost:5000/api/chats/channels/${activeRoom._id}/leave`, {
         studentPhone: loggedInUserPhone
       });
       showToast("👋 You have successfully left the class.");
@@ -154,7 +154,7 @@ const Chats = () => {
     if (!window.confirm(`Are you sure you want to permanently remove this connection?`)) return;
 
     try {
-      await axios.delete(`https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${targetRoom._id}`);
+      await axios.delete(`http://localhost:5000/api/chats/channels/${targetRoom._id}`);
       showToast("🚫 Connection removed permanently.");
       if (activeRoom && activeRoom._id === targetRoom._id) setActiveRoom(null);
       fetchChatRosters();
@@ -173,7 +173,7 @@ const Chats = () => {
         teacherPhone: loggedInUserPhone,
         subjectChannelName: newChannelName.trim()
       };
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/chats/channels', payload);
+      await axios.post('http://localhost:5000/api/chats/channels', payload);
       setNewChannelName("");
       showToast("📚 New class group created successfully!");
       fetchChatRosters();
@@ -187,11 +187,11 @@ const Chats = () => {
 
     try {
       await axios.patch(
-        `https://educonnect-backend-qmdv.onrender.com/api/chats/channels/${selectedGroupToAssign}/add-student`,
+        `http://localhost:5000/api/chats/channels/${selectedGroupToAssign}/add-student`,
         { studentPhone: activeRoom.studentPhone }
       );
 
-      await axios.post('https://educonnect-backend-qmdv.onrender.com/api/notifications', {
+      await axios.post('http://localhost:5000/api/notifications', {
         recipientPhone: activeRoom.studentPhone,
         message: `📚 You have been added to a Class Group Channel by Mentor ${loggedInUserName}!`
       });

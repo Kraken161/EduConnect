@@ -17,7 +17,7 @@ const Home = () => {
   return (
     <div className="home-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', textAlign: 'center' }}>
       
-      {/* BEAUTIFUL HERO SECTION */}
+      
       <section style={{ maxWidth: '800px', padding: '40px 20px' }}>
         <div style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', padding: '5px 15px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '20px' }}>
           🚀 Assam's Premier Learning Platform
